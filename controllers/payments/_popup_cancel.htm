@@ -1,0 +1,42 @@
+<?= Form::open() ?>
+<div class="modal-dialog">
+    <div class="modal-content">
+        <div class="modal-header">
+            <button type="button" class="close" data-dismiss="modal" aria-hidden="true">&times;</button>
+            <h4 class="modal-title">Причина отклонения</h4>
+        </div>
+        <div class="modal-body">
+            <div class="form-group text-field is-required">
+                <label>Причина отклонения платежа</label>
+                <input type="text" name="message" value="" class="form-control" />
+                <p class="help-block">Причина, по которой был отклонен платеж. Будет отображаться пользователю</p>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-default" data-dismiss="modal">Отмена</button>
+            <?php if ($list): ?>
+                <button 
+                href="javascript:;"
+                    class="btn btn-primary"
+                    data-dismiss="modal"
+                    data-request="onUpdateActionsPayments"
+                    onclick="$(this).data('request-data', {
+                        checked: $('.control-list').listWidget('getChecked'),
+                        action: 'cancel'
+                    })"
+                    data-request="onUpdateActionsPayments"
+                    data-stripe-load-indicator
+                >Отклонить платежи</button>
+            <?php else: ?>
+                <button 
+                    href="javascript:;"
+                    class="btn btn-primary"
+                    data-request="onCancel"
+                    data-request-data="id: <?= $paymentId ?>"
+                    data-stripe-load-indicator
+                >Отклонить платеж</button>
+            <?php endif; ?>
+        </div>
+    </div>
+</div>
+<? Form::close() ?>

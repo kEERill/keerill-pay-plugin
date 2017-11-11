@@ -1,0 +1,31 @@
+# ===================================
+#  Form Behavior Config
+# ===================================
+
+# Record name
+name: Платежная система
+
+# Model Form Field configuration
+form: $/keerill/pay/models/paymentsystem/fields.yaml
+
+# Model Class name
+modelClass: KEERill\Pay\Models\PaymentSystem
+
+# Default redirect location
+defaultRedirect: keerill/pay/paymentsystems
+
+# Create page
+create:
+    title: Создание
+    redirect: keerill/pay/paymentsystems/update/:id
+    redirectClose: keerill/pay/paymentsystems
+
+# Update page
+update:
+    title: Редактирование
+    redirect: keerill/pay/paymentsystems
+    redirectClose: keerill/pay/paymentsystems
+
+# Preview page
+preview:
+    title: Просмотр

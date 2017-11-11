@@ -1,0 +1,25 @@
+# ===================================
+#  List Column Definitions
+# ===================================
+
+columns:
+    id:
+        label: ID
+        searchable: true
+    
+    name:
+        label: Название
+
+    gateway_name:
+        label: Платежный шлюз
+
+    description:
+        label: Описание
+
+    code:
+        label: Уникальный код
+
+    is_enable:
+        label: Состояние системы
+        type: partial
+        path: list_is_enable_field

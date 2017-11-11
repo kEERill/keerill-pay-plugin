@@ -1,0 +1,18 @@
+<div data-control="toolbar" data-disposable>
+    <?php if ($this->user->hasAccess('keerill.pay.logs.remove')) : ?>
+        <div data-control="toolbar" data-disposable="">
+            <button 
+                class="btn btn-sm btn-secondary oc-icon-trash-o" 
+                onclick="$(this).data('request-data', {
+                    checked: $('#Payments-preview-RelationController-logs-view .control-list').listWidget('getChecked')
+                })" 
+                data-request="onRelationButtonDelete" 
+                data-request-confirm="Вы уверены?" 
+                data-trigger-action="enable" 
+                data-trigger="#Payments-preview-RelationController-logs-view .control-list input[type=checkbox]" 
+                data-trigger-condition="checked" 
+                data-stripe-load-indicator>
+            Удалить    </button>
+        </div>
+    <?php endif; ?>
+</div>

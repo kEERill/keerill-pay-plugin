@@ -1,0 +1,9 @@
+{% if pay_payment %}
+    {% if pay_partialName %}
+        {% partial pay_partialName %}
+    {% else %}
+        {% partial __SELF__ ~ '::info' %}
+    {% endif %}
+{% else %}
+    {% partial __SELF__ ~ '::not_found' %}
+{% endif %}

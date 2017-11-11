@@ -1,0 +1,12 @@
+<?php if ($data = $formModel->request_data) : ?>
+    <?php foreach($data as $key => $value) :?>
+        <p><b><?= $key; ?></b>: <?= $value; ?></p>
+    <?php endforeach; ?>
+<?php else : ?>
+<div class="callout fade in callout-info no-subheader">
+    <div class="header">
+        <i class="icon-info"></i>
+        <h3>Никаких данных не было передано</h3>
+    </div>
+</div>
+<?php endif; ?>

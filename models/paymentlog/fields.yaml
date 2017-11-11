@@ -1,0 +1,28 @@
+# ===================================
+#  Form Field Definitions
+# ===================================
+
+fields:
+    message:
+        label: Сообщение
+
+    code:
+        label: Код сообщения
+        span: left
+
+    request_data:
+        label: Переданные параметры
+        commentAbove: Параметры переданные при вызове данной опирации
+        span: right
+        type: partial
+        path: preview_log
+
+    user:
+        label: Пользователь
+        comment: Пользователь, который выполнил данную операцию
+        span: left
+        type: recordfinder
+        nameFrom: first_name
+        descriptionFrom: last_name
+
+    

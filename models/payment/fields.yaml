@@ -1,0 +1,24 @@
+# ===================================
+#  Form Field Definitions
+# ===================================
+
+fields:
+    section_payment_fields:
+        label: Информация о платеже
+        comment: Здесь находятся основные данные платежа
+        type: section
+        context: preview
+
+    description:
+        label: Дополнительная информация
+        comment: Что то типо примечания к платежу
+
+    payment:
+        label: Платежная система
+        type: relation
+        emptyOption: -- Не выбрано --
+
+    hash:
+        label: Хэш платежа
+        comment: Хэш генерируется при создании платежа. В основном используется для получения информации о платеже
+        context: preview

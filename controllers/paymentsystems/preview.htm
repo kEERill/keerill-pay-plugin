@@ -1,0 +1,34 @@
+<?php Block::put('breadcrumb') ?>
+    <ul>
+        <li><a href="<?= Backend::url('keerill/pay/paymentsystems') ?>">Управление платежными системами</a></li>
+        <li><?= e($this->pageTitle) ?></li>
+    </ul>
+<?php Block::endPut() ?>
+
+<?php if (!$this->fatalError): ?>
+    <?php if (!$formModel->checkGatewayClass()): ?>
+        <?= $this->makePartial('preview_class_not_found'); ?>
+    <?php endif; ?>
+    
+    <div class="scoreboard">
+        <div data-control="toolbar">
+            <?= $this->makePartial('preview_scoreboard') ?>
+        </div>
+    </div>
+
+    <div class="form-buttons">
+        <div class="loading-indicator-container">
+            <?= $this->makePartial('preview_toolbar') ?>
+        </div>
+    </div>
+
+    <div class="form-preview">
+        <?= $this->formRenderPreview() ?>
+    </div>
+
+<?php else: ?>
+
+    <p class="flash-message static error"><?= e($this->fatalError) ?></p>
+    <p><a href="<?= Backend::url('keerill/pay/paymentsystems') ?>" class="btn btn-default">Return to payment systems list</a></p>
+
+<?php endif ?>

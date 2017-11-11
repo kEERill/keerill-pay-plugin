@@ -1,0 +1,22 @@
+# ===================================
+#  Relation Behavior Config
+# ===================================
+
+logs:
+  label: Логи
+  view:
+    list: $/keerill/pay/models/paymentlog/columns.yaml
+    toolbarPartial: relation_toolbar_logs
+    recordsPerPage: 10
+    showSearch: true
+  manage:
+    form: $/keerill/pay/models/paymentlog/fields.yaml
+    recordsPerPage: 10
+
+items:
+  label: предмет
+  view:
+    list: $/keerill/pay/models/paymentitem/columns.yaml
+    toolbarPartial: relation_toolbar_items
+  manage:
+    form: $/keerill/pay/models/paymentitem/fields.yaml

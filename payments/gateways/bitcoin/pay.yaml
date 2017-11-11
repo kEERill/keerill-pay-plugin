@@ -1,0 +1,31 @@
+fields:
+  address:
+    label: Кошелек
+    comment: Кошелек, на который пользователь должен осуществить перевод стредств
+    span: left
+
+  tx_hash:
+    label: TX Hash
+    span: right
+
+  payment_code:
+    label: Код платежа
+    comment:  Код платежа это личная информация для продавца, которая должна храниться в секрете.
+  
+  invoice:
+    label: Счёт
+    comment: Счёт может быть отправлен покупателю и/или будет использован для платёжной формы
+
+  btc_value:
+    label: BTC
+    comment: Количество BTC, которые должен пользователь перевести на счёт кошелька
+    span: left
+  
+  btc_received:
+    label: BTC получено
+    comment: Получено BTC платежной системы
+    span: right
+
+  confirmations:
+    label: Количество подтверждений
+    comment: Текущее количество подтверждений

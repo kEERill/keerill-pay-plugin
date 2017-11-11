@@ -1,0 +1,41 @@
+# ===================================
+#  Form Field Definitions
+# ===================================
+
+tabs:
+    fields:
+        name:
+            label: Название
+            comment: Используется для отображения доступных способов оплаты
+            tab: Основное
+            span: left
+
+        code:
+            label: Уникальный код системы
+            comment: Код используется для работы API с платежами
+            tab: Основное
+            span: right
+
+        is_enable:
+            label: Состояние системы
+            comment: Если опция выключена, то оплата через эту систему будет невозможна
+            type: switch
+            tab: Основное
+        
+        description:
+            label: Краткое описание
+            tab: Основное
+            span: left
+
+        min_pay:
+            label: Минимальная сумма платежа
+            tab: Основное
+            span: right
+            default: 100
+
+        partial_name:
+            label: Шаблон платежа
+            comment: Шаблон платежа, представляет собой partial с выводом данных платежа
+            type: dropdown
+            tab: Основное
+            span: left

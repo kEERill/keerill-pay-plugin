@@ -1,0 +1,14 @@
+<?php switch ($record->status) {
+        case \KEERill\Pay\Models\Payment::PAYMENT_NEW:
+            echo '<span class="text-info"><i class="icon-clock-o"></i> ' . $record->getLocalizationStatus() . '</span>';
+            break;
+        case \KEERill\Pay\Models\Payment::PAYMENT_WAIT:
+            echo '<span class="text-info"><i class="icon-refresh"></i> ' . $record->getLocalizationStatus() . '</span>';
+            break;
+        case \KEERill\Pay\Models\Payment::PAYMENT_SUCCESS:
+            echo '<span class="text-success"><i class="icon-check"></i> ' . $record->getLocalizationStatus() . '</span>';
+            break;
+        default:
+            echo '<span class="text-danger"><i class="icon-times"></i> ' . $record->getLocalizationStatus() . '</span>';
+            break;
+} ?>

@@ -1,0 +1,61 @@
+<div data-control="toolbar">
+    <?php if ($this->user->hasAccess('keerill.pay.payment.create')) : ?>
+        <a
+            href="<?= Backend::url('keerill/pay/payments/create') ?>"
+            data-control="popup"
+            data-handler="onCreateForm"
+            class="btn btn-primary oc-icon-plus">
+            Создать новый платеж
+        </a>
+    <?php endif; ?>
+    <div class="btn-group">
+        <?php if ($this->user->hasAccess('keerill.pay.payment.confirm')) : ?>
+            <button
+                class="btn btn-default oc-icon-check"
+                disabled="disabled"
+                onclick="$(this).data('request-data', {
+                    checked: $('.control-list').listWidget('getChecked'),
+                    action: 'success'
+                })"
+                data-request="onUpdateActionsPayments"
+                data-request-confirm="Вы действительно хотите подтвердить выбранные платежи?"
+                data-trigger-action="enable"
+                data-trigger=".control-list input[type=checkbox]"
+                data-trigger-condition="checked"
+                data-stripe-load-indicator>
+                Подтвердить
+            </button>
+        <?php endif; ?>
+        <?php if ($this->user->hasAccess('keerill.pay.payment.cancel')) : ?>
+            <button
+                class="btn btn-default oc-icon-times"
+                disabled="disabled"
+                data-control="popup"
+                data-handler="onLoadCancelled"
+                data-request-data="list: '1'"
+                data-trigger-action="enable"
+                data-trigger=".control-list input[type=checkbox]"
+                data-trigger-condition="checked"
+                data-stripe-load-indicator>
+                Отклонить
+            </button>
+        <?php endif; ?>
+    </div>
+    <?php if ($this->user->hasAccess('keerill.pay.payment.remove')) : ?>
+        <button
+            class="btn btn-default oc-icon-trash-o"
+            disabled="disabled"
+            onclick="$(this).data('request-data', {
+                checked: $('.control-list').listWidget('getChecked'),
+                action: 'delete'
+            })"
+            data-request="onUpdateActionsPayments"
+            data-request-confirm="Вы действительно хотите удалить выбранные платежа?"
+            data-trigger-action="enable"
+            data-trigger=".control-list input[type=checkbox]"
+            data-trigger-condition="checked"
+            data-stripe-load-indicator>
+            <?= e(trans('system::lang.plugins.remove')) ?>
+        </button>
+    <?php endif; ?>
+</div>

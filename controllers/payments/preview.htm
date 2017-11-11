@@ -1,0 +1,83 @@
+<?php Block::put('breadcrumb') ?>
+    <ul>
+        <li><a href="<?= Backend::url('keerill/pay/payments') ?>">Управление платежами</a></li>
+        <li><?= e($this->pageTitle) ?></li>
+    </ul>
+<?php Block::endPut() ?>
+
+<?php if (!$this->fatalError): ?>
+
+    <?php if ($formModel->status == \KEERill\Pay\Models\Payment::PAYMENT_CANCEL): ?>
+        <div class="callout fade in callout-danger m-x">
+            <div class="header">
+                <i class="icon-times"></i>
+                <h3>Платеж был отклонен</h3>
+                <p>Данный платеж был отклонен администрацией по причине: <?= $formModel->message; ?></p>
+            </div>
+        </div>
+    <?php endif; ?>
+
+    <div class="scoreboard">
+        <div data-control="toolbar">
+            <?= $this->makePartial('preview_scoreboard') ?>
+        </div>
+    </div>
+
+    <div class="form-buttons">
+        <div class="loading-indicator-container">
+            <?= $this->makePartial('preview_toolbar') ?>
+        </div>
+    </div>
+    <div class="control-tabs content-tabs tabs-offset" data-control="tab">
+        <ul class="nav nav-tabs">
+            <li class="active"><a href="#contentItems">Предметы</a></li>
+            <?php if ($this->user->hasAccess('keerill.pay.logs.access')) : ?>
+                <li><a href="#contentLogs">Логи</a></li>
+            <?php endif; ?>
+            <?php if ($this->user->hasAccess('keerill.pay.params.*')) : ?>
+                <li><a href="#contentDatas">Параметры платежа</a></li>
+            <?php endif; ?>
+        </ul>
+        <div class="tab-content">
+            <div class="tab-pane active">
+                <?= $this->relationRender('items') ?>
+            </div>
+            <?php if ($this->user->hasAccess('keerill.pay.logs.access')) : ?>
+                <div class="tab-pane">
+                    <?= $this->relationRender('logs') ?>
+                </div>
+            <?php endif; ?>
+            <?php if ($this->user->hasAccess('keerill.pay.params.*')) : ?>
+                <div class="tab-pane">
+                    <div class="padded-container">
+                        <?php if ($this->user->hasAccess('keerill.pay.params.custom')) : ?>
+                            <?= $this->makePartial('preview_options') ?>
+                        <?php endif; ?>
+                        <?php if ($this->user->hasAccess('keerill.pay.params.base')) : ?>
+                            <?= $this->formRenderPreview() ?>
+                        <?php endif; ?>
+                    </div>
+                </div>
+            <?php endif; ?>
+        </div>
+    </div>
+
+    <?php if ($this->user->hasAccess('keerill.pay.payment.remove')) : ?>
+        <div class="form-buttons">
+            <div class="loading-indicator-container">
+                <button
+                    class="oc-icon-trash-o btn-icon danger pull-right"
+                    data-request="onDelete"
+                    data-load-indicator="Удаление платежа..."
+                    data-request-confirm="Вы действительно хотите удалить этот платеж?">
+                </button>
+            </div>
+        </div>
+    <?php endif; ?>
+
+<?php else: ?>
+    <div class="p-x">
+        <p class="flash-message static error"><?= e($this->fatalError) ?></p>
+        <p><a href="<?= Backend::url('keerill/pay/payments') ?>" class="btn btn-default">Return to payments list</a></p>        
+    </div>
+<?php endif ?>

@@ -1,0 +1,25 @@
+<a
+    href="<?= Backend::url('keerill/pay/payments') ?>"
+    class="btn btn-default oc-icon-chevron-left">
+    Вернуться к списку платежам
+</a>
+<?php if ($formModel->hasActive()) : ?>
+    <?php if ($this->user->hasAccess('keerill.pay.payment.confirm')) : ?>
+        <a 
+            href="javascript:;"
+            class="btn btn-primary oc-icon-check"
+            data-request="onSuccess"
+            data-request-data="id: <?= $formModel->id ?>"
+            data-request-confirm="Вы действительно хотите подтвердить данный платеж?"
+        >Подтвердить</a>
+    <?php endif; ?>
+    <?php if ($this->user->hasAccess('keerill.pay.payment.cancel')) : ?>
+        <a 
+            href="javascript:;"
+            class="btn btn-danger oc-icon-times"
+            data-control="popup"
+            data-handler="onLoadCancelled"
+            data-request-data="id: <?= $formModel->id ?>"
+        >Отклонить</a>
+    <?php endif; ?>
+<?php endif; ?>

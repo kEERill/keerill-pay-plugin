@@ -1,0 +1,27 @@
+# ===================================
+# Filter Scope Definitions
+# ===================================
+
+scopes:
+    payments:
+        label: Платежные системы
+        modelClass: KEERill\Pay\Models\PaymentSystem
+        nameFrom: name
+        scope: filterByPayment
+        
+    statuses:
+        label: Статус
+        type: group
+        modelClass: KEERill\Pay\Models\Payment
+        conditions: status in (:filtered)
+        options: getPaymentStatuses
+
+    paid_at:
+        label: Дата оплаты
+        type: daterange
+        conditions: paid_at >= ':after' AND paid_at <= ':before'
+
+    created_date:
+        label: Дата создания
+        type: daterange
+        conditions: created_at >= ':after' AND created_at <= ':before'

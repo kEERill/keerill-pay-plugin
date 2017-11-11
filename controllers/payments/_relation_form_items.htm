@@ -1,0 +1,71 @@
+<div>
+    <?php if ($itemId): ?>
+
+        <?= Form::ajax('onUpdateItem', ['data-popup-load-indicator' => true]) ?>
+
+            <!-- Passable fields -->
+            <input type="hidden" name="itemId" value="<?= $itemId ?>" />
+
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="popup">&times;</button>
+                <h4 class="modal-title">
+                    Изменить предмет
+                </h4>
+            </div>
+
+            <div class="modal-body">
+                <?= $widget->render($this->user->hasAccess('keerill.pay.items.edit') ? [] : ['preview' => true]) ?>
+            </div>
+
+            <div class="modal-footer">
+                <?php if ($this->user->hasAccess('keerill.pay.items.edit')) : ?>
+                    <button
+                        type="submit"
+                        class="btn btn-primary">
+                        Сохранить
+                    </button>
+                <?php endif; ?>
+                <button
+                    type="button"
+                    class="btn btn-default"
+                    data-dismiss="popup">
+                    Отмена
+                </button>
+            </div>
+
+        <?= Form::close() ?>
+
+    <?php else: ?>
+
+        <?= Form::ajax('onCreateItem', ['data-popup-load-indicator' => true, 'data-request-success' => 'console.log(data)']) ?>
+            
+            <input type="hidden" name="alias" value="<?= $alias ?>" >
+            <input type="hidden" name="paymentId" value="<?= $paymentId ?>" >
+
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="popup">&times;</button>
+                <h4 class="modal-title">
+                    Создание нового предмета
+                </h4>
+            </div>
+            <div class="modal-body">
+                <?= $widget->render() ?>
+            </div>
+            <div class="modal-footer">
+                <button
+                    type="submit"
+                    class="btn btn-primary">
+                   Создать
+                </button>
+                <button
+                    type="button"
+                    class="btn btn-default"
+                    data-dismiss="popup">
+                    Отмена
+                </button>
+            </div>
+        <?= Form::close() ?>
+
+    <?php endif ?>
+
+</div>

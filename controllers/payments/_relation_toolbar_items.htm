@@ -1,0 +1,36 @@
+<div data-control="toolbar" data-disposable>
+    <?php if ($this->user->hasAccess('keerill.pay.items.*')) : ?>
+        <?php if ($formModel->hasOpen()) : ?>
+            <div data-control="toolbar" data-disposable="">
+                <button 
+                    class="btn btn-sm btn-secondary oc-icon-plus"
+                    data-control="popup"
+                    data-handler="onAddItem"
+                    data-request-data="paymentId: '<?= $formModel->id ?>'"
+                    data-stripe-load-indicator
+                    >
+                    Добавить
+                </button>
+                <button 
+                    class="btn btn-sm btn-secondary oc-icon-trash-o" 
+                    onclick="$(this).data('request-data', {
+                                checked: $('#Payments-preview-RelationController-items-view .control-list').listWidget('getChecked')
+                            })" 
+                    data-request="onRelationButtonDelete" 
+                    data-request-confirm="Вы уверены?" 
+                    data-trigger-action="enable" 
+                    data-trigger="#Payments-preview-RelationController-items-view .control-list input[type=checkbox]" 
+                    data-trigger-condition="checked" 
+                    data-stripe-load-indicator>
+                    Удалить    
+                </button>   
+            </div>
+        <?php else: ?>
+            <div class="callout fade in callout-info no-icon m-a-0">
+                <div class="header">
+                    <p>Платеж должен быть открыт, чтобы добавлять или редактировать предметы</p>
+                </div>
+            </div>
+        <?php endif; ?>
+    <?php endif; ?>
+</div>

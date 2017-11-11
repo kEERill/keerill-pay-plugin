@@ -1,0 +1,35 @@
+<div class="scoreboard-item title-value">
+    <h4>ID</h4>
+    <p><?= e($formModel->id) ?></p>
+</div>
+<div class="scoreboard-item title-value">
+    <h4>Способ оплаты</h4>
+    <p><?= ($formModel->payment) ? e($formModel->payment->name) : 'Не выбран'; ?></p>
+</div>
+<div class="scoreboard-item title-value">
+    <h4>Сумма оплаты</h4>
+    <p class="positive"><?= e($formModel->pay) ?></p>
+    <p class="description">
+        <?php if ($this->user->hasAccess('keerill.pay.payment.update_pay')) : ?>
+            <a 
+                href="javascript:;"
+                data-request="onUpdatePay"
+                data-request-data="id: <?= $formModel->id ?>"
+            >Пересчитать сумму</a>
+        <?php endif; ?>
+    </p>
+</div>
+<div class="scoreboard-item title-value">
+    <h4>Дата создания</h4>
+    <p><?= $formModel->created_at->format('D, j M Y, H:i') ?></p>
+    <p class="description">
+        Обновлен: <?= $formModel->updated_at->format('D, j M Y, H:i') ?>
+    </p>
+</div>
+<div class="scoreboard-item title-value">
+    <h4>Статус</h4>
+    <p><?= $formModel->getLocalizationStatus() ?></p>
+    <p class="description">
+        Оплачен: <?= $formModel->paid_at ? $formModel->paid_at->format('D, j M Y, H:i') : 'Не оплачено' ?>
+    </p>
+</div>

@@ -1,0 +1,36 @@
+# ===================================
+#  List Column Definitions
+# ===================================
+
+columns:
+    id:
+        label: ID
+        searchable: true
+
+    pay_method:
+        label: Способ оплаты
+        relation: payment
+        select: name
+        default: Не выбрано
+        searchable: true
+
+    pay:
+        label: Сумма
+        
+    status:
+        label: Статус
+        type: partial
+        path: list_field_type
+
+    description:
+        label: Дополнительно описание
+        searchable: true
+        
+    paid_at:
+        label: Оплачено
+        default: Не оплачено
+        type: datetime
+
+    created_at:
+        label: Создан
+        type: datetime

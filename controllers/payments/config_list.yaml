@@ -1,0 +1,50 @@
+# ===================================
+#  List Behavior Config
+# ===================================
+
+# Model List Column configuration
+list: $/keerill/pay/models/payment/columns.yaml
+
+# Model Class name
+modelClass: KEERill\Pay\Models\Payment
+
+# List Title
+title: Управление платежами
+
+# Link URL for each record
+recordUrl: keerill/pay/payments/preview/:id
+
+# Message to display if the list is empty
+noRecordsMessage: backend::lang.list.no_records
+
+# Records to display per page
+recordsPerPage: 20
+
+# Displays the list column set up button
+showSetup: true
+
+# Displays the list column checkboxes
+showCheckboxes: true
+
+# Displays the sorting link on each column
+showSorting: true
+
+# Filter widget configuration
+filter: config_filter.yaml
+
+# Default sorting column
+defaultSort:
+    column: created_at
+    direction: desc
+
+# Display checkboxes next to each record
+# showCheckboxes: true
+
+# Toolbar widget configuration
+toolbar:
+    # Partial for toolbar buttons
+    buttons: list_toolbar
+
+    # Search widget configuration
+    search:
+        prompt: backend::lang.list.search_prompt
