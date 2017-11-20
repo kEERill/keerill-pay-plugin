@@ -21,25 +21,30 @@ Class Payment
      */
     public function createPaymentWithItemsAndCode($code, $data = [], $items = [])
     {
-        if (!$paymentSystem = PaymentSystem::where('code', $code)->first()) {
-            throw new PayException(sprintf('Не существует платежного шлюза с таким кодом [%s]', $code), ['code' => $code]);
-        }
-
         /*
-         * Проверка на состояние работы платежной системы
+         * Проверка на существовании платежной системы
+         * 
+         * Ошибка PH-01: Платежная система с таким кодом не найдена или же она отключена
          */
-        if (!$paymentSystem->hasEnableSystem()) {
-            throw new PayException('Данная платежная система отключена администрацией сайта', [], false);
+        if (!$paymentSystem = PaymentSystem::where('code', $code)->hasEnable()->first()) {
+            throw new PayException('При выполнении операции произошла ошибка с кодом PH-01', ['code' => $code] + post(), true);
         }
 
         /**
          * Создание платежа с предметами
          */
         if ($payment = $this->createPaymentWithItems($data, $items)) {   
-            /**
-             * Присваивание способа оплаты в платежу
-             */
-            $paymentSystem->setPaymentMethod($payment);
+            try {
+                /**
+                 * Присваивание способа оплаты в платежу
+                 * 
+                 * Ошибка PH-02: Не валидные аргументы платежа или уже выбран способ оплаты
+                 */
+                $this->setPaymentMethod($payment, $paymentSystem);
+            }
+            catch(\Exception $ex) {
+                throw new PayException('При выполнении операции произошла ошибка с кодом PH-02', post());
+            }
         }
     }
 
@@ -52,8 +57,11 @@ Class Payment
      */
     public function createPaymentWithItems($data = [], $items = [], $throwException = true)
     {
+        /**
+         * Ошибка PH-03: Переданные данные платежа не являются массивами [method: createpaymentWithItems]
+         */
         if (!is_array($data) || !is_array($items)) {
-            throw new PayException('Invalid payment params', post(), true);
+            throw new PayException('При выполнении операции произошла ошибка с кодом PH-03', post(), true);
         }
 
         $payment = new PaymentModel;
@@ -138,5 +146,26 @@ Class Payment
         }
 
         return $filteredItems;
+    }
+
+    /**
+     * Присваивание нового способа оплаты к платежу
+     * 
+     * @param KEERill\Pay\Models\Payment Модель платежа
+     * @param KEERill\Pay\Models\PaymentSystem Модель платежной системы
+     * @return void
+     */
+    public function setPaymentMethod(PaymentModel $payment, PaymentSystem $paymentSystem)
+    {
+        /**
+         * Ошибка PH-04: У платежа уже выбран способ оплаты
+         */
+        if ($payment->payment) {
+            throw new PayException('При выполнении операции произошла ошибка с кодом PH-04', post(), false);
+        }
+
+        $payment->payment = $paymentSystem;
+        $paymentSystem->fireEvent('keerill.pay.extendPayment', [$payment]);
+        $payment->save();
     }
 }

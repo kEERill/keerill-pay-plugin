@@ -161,25 +161,14 @@ class PaymentSystem extends Model
         $this->class_name = $class;
         $this->gateway_name = array_get($class::gatewayDetails(), 'name', 'Unknown');
     }
-    
+
     /**
-     * Присваивание нового способа оплаты к платежу
+     * Scope активных платежных систем
      * 
-     * @param KEERill\Pay\Models\Payment Модель платежа
      * @return void
      */
-    public function setPaymentMethod($payment)
+    public function scopeHasEnable($query)
     {
-        if (!($payment instanceof Payment)) {
-            return new PayException('Переданная модель не является платежом', post());
-        }
-
-        if ($payment->payment) {
-            throw new PayException('У данного платежа уже выбран способ оплаты', [], false);
-        }
-
-        $payment->payment = $this;
-        $this->fireEvent('keerill.pay.extendPayment', [$payment]);
-        $payment->save();
+        $query->where('is_enable', '1');
     }
 }
