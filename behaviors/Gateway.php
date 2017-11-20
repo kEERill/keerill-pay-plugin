@@ -109,26 +109,6 @@ Class Gateway extends ModelBehavior {
     }
 
     /**
-     * Получение платежа по данным
-     * 
-     * @param array $data Данные платежа
-     * @return \KEERill\Pay\Models\Payment
-     */
-    protected function getPaymentByCredentials(array $data)
-    {
-        $paymentQuery = \KEERill\Pay\Models\Payment::newQuery();
-        $this->extendPaymentQuery($paymentQuery);
-
-        if ($data) {
-            foreach ($data as $attr => $value) {
-                $query->where($attr, $value);
-            }
-        }
-
-        return $paymentQuery->first();
-    }
-
-    /**
      * Инициализация платежного шлюза, с привязкой модели
      *
      * @param $model \KEERill\Pay\Models\PaymentSystem
@@ -136,7 +116,7 @@ Class Gateway extends ModelBehavior {
     public function boot()
     {
         if (!$this->model->exists) {
-            $this->initConfidData($this->model);
+            $this->initConfigData($this->model);
         }
 
         if (!$this->model->rules) {
@@ -144,6 +124,10 @@ Class Gateway extends ModelBehavior {
         }
 
         $this->model->rules = array_merge($this->model->rules, $this->defineValidationRules());
+
+        $this->model->bindEvent('keerill.pay.extendCreatePayment', function($payment) {
+            $this->extendCreateNewPayment($payment);
+        });
     }
 
     /**
@@ -160,19 +144,13 @@ Class Gateway extends ModelBehavior {
      *
      * @param $model \KEERill\Pay\Models\PaymentSystem
      */
-    public function initConfidData($model) {}
-
-    protected function extendPaymentQuery($query) 
-    {
-        $query->where('pay_method', $this->model->id);
-    }
+    public function initConfigData($model) {}
 
     /**
-     * Вызывается, когда создаётся новый платеж или присваивается платежная система
-     * к уже существующей системе
+     * Вызывается, когда присваивается платеж к данной платежной системе
      * 
      * @param KEERill\Pay\Models\Payment
      * @return void
      */
-    public function createdNewPayment($payment) {}
+    public function extendCreateNewPayment($payment) {}
 }

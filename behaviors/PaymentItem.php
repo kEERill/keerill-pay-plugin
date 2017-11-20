@@ -131,7 +131,7 @@ Class PaymentItem extends ModelBehavior {
      * @param Backend\Widgets\Form $widget виджет формы
      * @return void
      */
-    public function extendFormWidget($widget) 
+    public function formExtendFields($widget, $fields) 
     {
         $config = $this->getFieldConfig();
         
@@ -143,6 +143,7 @@ Class PaymentItem extends ModelBehavior {
     /**
      * Вызывается котгда платеж меняет статус
      *
+     * @param KEERill\Pay\Models\Payment Модель платежа
      * @return bool true если изменение прошло успешно
      */
     public function changeStatusPayment($payment)

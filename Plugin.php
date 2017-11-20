@@ -39,9 +39,10 @@ class Plugin extends PluginBase
     {
 
         $alias = AliasLoader::getInstance();
-        $alias->alias('PaymentManager', 'KEERill\Pay\Facades\Payment');
+        $alias->alias('PaymentManager', 'KEERill\Pay\Facades\PaymentManager');
+        $alias->alias('Payment', 'KEERill\Pay\Facades\Payment');
 
-        App::singleton('payment.manager', function() {
+        App::singleton('keerill.pay.paymentmanager', function() {
             return \KEERill\Pay\Classes\PaymentManager::instance();
         });
 
@@ -239,19 +240,6 @@ class Plugin extends PluginBase
     {
         return [
             'KEERill\Pay\Payments\Gateways\Bitcoin' => 'bitcoin'
-        ];
-    }
-
-    /**
-     * Регистрация платежных предметов
-     * 
-     * @return array
-     */
-    public function registerPaymentItems()
-    {
-        return [
-            'KEERill\Pay\Payments\Items\Test' => 'test',
-            'KEERill\Pay\Payments\Items\Test1' => 'test1'
         ];
     }
 }

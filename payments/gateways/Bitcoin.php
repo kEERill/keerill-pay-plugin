@@ -45,11 +45,11 @@ Class Bitcoin extends Gateway {
      */
     public function paymentConfirmation()
     {
-        return ;
+        return;
     }
 
-    public function createdNewPayment($payment)
+    public function extendCreateNewPayment($payment)
     {
-        $payment->setParam(['payment_code' => 'asdasdasdas']);
+        $payment->setParam(['payment_code' => '123123123']);
     }
 } 

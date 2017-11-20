@@ -4,30 +4,44 @@ use Log;
 use Exception;
 use October\Rain\Exception\ApplicationException;
 
-/**
- * Используется когда платеж или транзакции привели к ошибке
- *
- * @package kEERill\Pay
- * @author kEERill
- */
-class PayException extends ApplicationException
+Class PayException extends ApplicationException
 {
-    public function __construct($message = "", $params = [], $log = true, $code = 0, Exception $previous = null)
+    /**
+     * @var array Параметры ошибки
+     */
+    protected $params = [];
+
+    /**
+     * Получение параметров ошибки
+     * 
+     * @return array Параметры
+     */
+    public function getParams()
     {
-        if ($log) {
-            $adm_message = $message;
+        return $this->params;
+    }
+    
+    public function __construct($message = "", $params = [], $useLog = false, $code = 0, Exception $previous = null)
+    {
+        $this->params = $params;
+
+        if ($useLog == true) {
+            $logMessage = $message;
             
-            if ($params) {
+            if (count($params) > 0) {
                 $result = [];
     
                 foreach($params as $name => $value) {
                     $result[] = "\n" . sprintf('%s = %s', $name, $value);
                 }
     
-                $adm_message .= "\n" . sprintf('Параметры запроса: %s', implode(', ', $result));
+                $logMessage .= "\n" . sprintf(
+                    'Параметры запроса: %s', 
+                    implode(', ', $result)
+                );
             }
     
-            Log::error($adm_message);
+            Log::error($logMessage);
         }
 
         parent::__construct($message, $code, $previous);

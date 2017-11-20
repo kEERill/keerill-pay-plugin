@@ -47,6 +47,25 @@ Class PaymentManager
     }
 
     /**
+     * Получение платежа по данным
+     * 
+     * @param array $data Данные платежа
+     * @return \KEERill\Pay\Models\Payment
+     */
+    public function getPaymentByCredentials(array $data)
+    {
+        $paymentQuery = \KEERill\Pay\Models\Payment::newQuery();
+
+        if ($data) {
+            foreach ($data as $attr => $value) {
+                $query->where($attr, $value);
+            }
+        }
+
+        return $paymentQuery->first();
+    }
+
+    /**
      * Регистрация платежных шлюзов
      *
      * @param string $owner ID плагина Author.Plugin.
@@ -262,79 +281,6 @@ Class PaymentManager
         return $items[$alias];
     }
 
-    /**
-     * Создание нового платежа
-     * 
-     * @param array $data Данные платежа, например: Описание, и т.д.
-     * @param array $items Предметы платежа, которые будут добавлены к новому платежу
-     * @return KEERill\Pay\Models\Payment $payment Модель платежа
-     */
-    public function createPaymentWithItems($data = [], $items = [])
-    {
-        Event::fire('keerill.pay.beforeCreatePayment', [$this, $data, $items]);
-
-        $payment = Payment::create($data);
-
-        if ($items && is_array($items)) {
-            foreach ($items as $item => $params) {
-                if (!$itemClass = $this->findPaymentItemByAlias($item)) {
-                    continue;
-                }
-
-                $newItem = new PaymentItem;
-                $newItem->applyPaymentItemClass($itemClass->class);
-                $newItem->fill($params);
-
-                $payment->items()->add($newItem);
-            }
-        }
-
-        Event::fire('keerill.pay.afterCreatePayment', [$this, $payment]);
-
-        return $payment;
-    }
-
-    /**
-     * Создание нового платежа с предметами, передавая конкретных код платежной системы
-     * Также производиться проверка на минимальную сумму платежа в соответсвии платежной системы
-     * 
-     * @param string $code Код платежной системы, задаётся в настройках
-     * @param array $data Данные платежа, например: Описание, и т.д.
-     * @param array $items Предметы платежа, которые будут добавлены к новому платежу
-     * @return void
-     */
-    public function createPaymentWithItemsAndCode($code, $data = [], $items = [])
-    {
-        if (!$paySystem = PaymentSystem::where('code', $code)->first()) {
-            throw new PayException(sprintf('Не существует платежного шлюза с таким кодом [%s]', $code), ['code' => $code]);
-        }
-
-        /*
-         * Проверка на состояние работы платежной системы
-         */
-        if (!$paySystem->hasEnableSystem()) {
-            throw new PayException('Данная платежная система отключена администрацией сайта', [], false);
-        }
-
-        /**
-         * Проверка на минимальность суммы платежа в соответствии платежной системы
-         */
-        if (!$paySystem->checkMinPayItems($items)) {
-            throw new PayException(sprintf('Минимальная сумма платежа %s', $paySystem->min_pay), [], false);
-        }
-
-        /**
-         * Создание платежа с предметами
-         */
-        $payment = $this->createPaymentWithItems($data, $items);
-
-        /**
-         * Присваивание способа оплаты в платежу
-         */
-        $paySystem->setPaymentMethod($payment);
-    }
-
-    
     /**
      * Executes an entry point for registered gateways, defined in routes.php file.
      * @param  string $code Code payment system

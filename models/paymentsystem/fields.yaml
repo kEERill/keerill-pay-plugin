@@ -27,15 +27,9 @@ tabs:
             tab: Основное
             span: left
 
-        min_pay:
-            label: Минимальная сумма платежа
-            tab: Основное
-            span: right
-            default: 100
-
         partial_name:
             label: Шаблон платежа
             comment: Шаблон платежа, представляет собой partial с выводом данных платежа
             type: dropdown
             tab: Основное
-            span: left
+            span: right

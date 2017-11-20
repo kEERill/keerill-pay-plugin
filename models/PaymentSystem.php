@@ -161,34 +161,6 @@ class PaymentSystem extends Model
         $this->class_name = $class;
         $this->gateway_name = array_get($class::gatewayDetails(), 'name', 'Unknown');
     }
-
-    /**
-     * Расчёт стоимости будущего платежа и проверка его на минимальную стоимость
-     * 
-     * @param array $items Предметы, которые будут добавлены в платеж
-     * @return bool
-     */
-    public function checkMinPayItems($items = [])
-    {
-        if (!$items || !is_array($items))  {
-            if ($this->min_pay == 0) {
-                return true;
-            }
-
-            return false;
-        }
-
-        $pay = 0;
-        foreach ($items as $item => $params) {
-            $pay += array_get($params, 'price');
-        }
-
-        if ($pay >= $this->min_pay) {
-            return true;
-        }
-
-        return false;
-    }
     
     /**
      * Присваивание нового способа оплаты к платежу
@@ -198,12 +170,16 @@ class PaymentSystem extends Model
      */
     public function setPaymentMethod($payment)
     {
+        if (!($payment instanceof Payment)) {
+            return new PayException('Переданная модель не является платежом', post());
+        }
+
         if ($payment->payment) {
             throw new PayException('У данного платежа уже выбран способ оплаты', [], false);
         }
 
         $payment->payment = $this;
-        $this->createdNewPayment($payment);
+        $this->fireEvent('keerill.pay.extendCreatePayment', [$payment]);
         $payment->save();
     }
 }

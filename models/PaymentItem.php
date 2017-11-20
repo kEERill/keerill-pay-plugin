@@ -26,7 +26,6 @@ class PaymentItem extends Model
     public $jsonable = ['options'];
 
     public $rules = [
-        'payment_id' => 'required|exists:oc_payments,id',
         'class_name' => 'required'
     ];
 
@@ -52,10 +51,6 @@ class PaymentItem extends Model
     public function beforeCreate()
     {
         $this->code = $this->getCodeItem();
-
-        if (!array_get($this->attributes, 'description')) {
-            $this->description = $this->getMessageItem();
-        }
     }
 
     /**
@@ -74,7 +69,10 @@ class PaymentItem extends Model
 
         foreach ($fields as $name => $config) {
             if (!array_key_exists($name, $this->attributes)) {
-                continue;
+                if (!array_key_exists($name . '_id', $this->attributes)) {
+                    continue;
+                }
+                $name = $name . '_id';
             }
 
             $configData[$name] = $this->attributes[$name];
@@ -82,6 +80,10 @@ class PaymentItem extends Model
         }
 
         $this->options = $configData;
+
+        if (!$this->description && !array_get($this->attributes, 'description')) {
+            $this->description = $this->getMessageItem();
+        }
 
         if ($this->payment) {
             $this->payment->pay += floatval(array_get($this->attributes, 'price', 0)) - array_get($this->original, 'price', 0);

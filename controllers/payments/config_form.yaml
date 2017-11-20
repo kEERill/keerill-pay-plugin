@@ -16,7 +16,7 @@ defaultRedirect: keerill/pay/payments
 
 # Create page
 create:
-    title: Создание
+    title: Управление платежами
     redirect: keerill/pay/payments/preview/:id
     redirectClose: keerill/pay/payments
 

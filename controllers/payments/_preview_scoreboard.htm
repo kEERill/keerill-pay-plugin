@@ -8,7 +8,7 @@
 </div>
 <div class="scoreboard-item title-value">
     <h4>Сумма оплаты</h4>
-    <p class="positive"><?= e($formModel->pay) ?></p>
+    <p class="positive"><?= \Currency::format($formModel->pay) ?></p>
     <p class="description">
         <?php if ($this->user->hasAccess('keerill.pay.payment.update_pay')) : ?>
             <a 

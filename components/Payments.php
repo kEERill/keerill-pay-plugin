@@ -6,6 +6,7 @@ use Validator;
 use AuthManager;
 use PaymentManager;
 use ApplicationException;
+use Payment as PaymentHelper;
 use Cms\Classes\ComponentBase;
 
 class Payments extends ComponentBase
@@ -32,18 +33,21 @@ class Payments extends ComponentBase
     public function onCreatePayment()
     {
         $data = [
-            'description' => 'asdasd'
+            'description' => 'asdasd',
+            'user' => AuthManager::getUser()
         ];
 
         $items = [
-            'test' => [
+            [
+                'nameItem' => 'pay_balance',
                 'price' => '50'
             ],
-            'test1' => [
+            [
+                'nameItem' => 'pay_balance',
                 'price' => '80'
-            ]
+            ],
         ];
 
-        PaymentManager::createPaymentWithItemsAndCode('asd', $data, $items);
+        PaymentHelper::createPaymentWithItemsAndCode('asd', $data, $items);
     }
 }

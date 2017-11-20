@@ -23,8 +23,6 @@ class CreatePaymentSystemsTable extends Migration
             $table->boolean('is_enable')->default(false);
             $table->string('partial_name')->nullable();
 
-            $table->integer('min_pay')->default(100);
-
             $table->timestamps();
         });
     }

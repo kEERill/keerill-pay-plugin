@@ -54,7 +54,8 @@ class Payment extends Model
      */
     protected $fillable = [
         'description',
-        'status'
+        'status',
+        'user'
     ];
 
     /**
@@ -196,7 +197,7 @@ class Payment extends Model
             $this->status = self::PAYMENT_WAIT;
 
             $this->items->each(function($item) {
-                $item->changeStatusPayment($this->status);
+                $item->changeStatusPayment($this);
             });
         }
     }
@@ -209,6 +210,28 @@ class Payment extends Model
     public function beforeCreate()
     {
         $this->generateHash();
+    }
+
+    /**
+     * Смена статуса платежа, запуск обновления предметов платежа
+     * 
+     * @param integer Новый статус
+     * @return void
+     */
+    public function changeStatusPayment($newStatus)
+    {
+        try {
+            $this->status = $newStatus;
+            $this->items->each(function($item) {
+                $item->changeStatusPayment($this);
+            });
+        } 
+        catch(PayException $ex) {
+            $this->status = self::PAYMENT_ERROR;
+            $this->save();
+
+            throw $ex;
+        }
     }
     
     /**
@@ -229,20 +252,28 @@ class Payment extends Model
 
             Event::fire('keerill.pay.beforeSuccessStatus', [$this]);
 
-            $this->items->each(function($item) {
-                $item->changeStatusPayment($this, $this->status);
-            });
-
-            $this->status = self::PAYMENT_SUCCESS;
             $this->paid_at = $this->freshTimestamp();
+
+            $this->changeStatusPayment(self::PAYMENT_SUCCESS);
+
             $this->save();
 
             Event::fire('keerill.pay.afterSuccessStatus', [$this]);
 
         } catch(PayException $ex) {
-            PaymentLog::add($this, $ex->getMessage(), 'error' , $requestData, BackendAuth::getUser());
+            PaymentLog::add(
+                $this, 
+                sprintf(
+                    'Произошла ошибка при подтверждении платежа: %s', 
+                    $ex->getMessage()
+                ), 
+                'error' , 
+                $requestData + $ex->getParams(), 
+                BackendAuth::getUser()
+            );
 
             $this->status = self::PAYMENT_ERROR;
+            $this->paid_at = null;
             $this->save();
 
             throw $ex;
@@ -269,18 +300,28 @@ class Payment extends Model
 
             Event::fire('keerill.pay.beforeCancelledStatus', [$this]);
 
-            $this->items->each(function($item) {
-                $item->changeStatusPayment($this, $this->status);
-            });
-
             $this->status = self::PAYMENT_CANCEL;
             $this->message = $message;
+
+            $this->items->each(function($item) {
+                $item->changeStatusPayment($this);
+            });
+
             $this->save();
 
             Event::fire('keerill.pay.afterCancelledStatus', [$this]);
 
         } catch(PayException $ex) {
-            PaymentLog::add($this, $ex->getMessage(), 'error' , [], BackendAuth::getUser());
+            PaymentLog::add(
+                $this, 
+                sprintf(
+                    'Произошла ошибка при отклонении платежа: %s', 
+                    $ex->getMessage()
+                ), 
+                'error' , 
+                [], 
+                BackendAuth::getUser()
+            );
 
             $this->status = self::PAYMENT_ERROR;
             $this->save();

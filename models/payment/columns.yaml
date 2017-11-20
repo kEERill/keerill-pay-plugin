@@ -14,8 +14,13 @@ columns:
         default: Не выбрано
         searchable: true
 
+    hash:
+        label: Хэш платежа
+        searchable: true
+
     pay:
         label: Сумма
+        type: currency
         
     status:
         label: Статус
@@ -24,6 +29,7 @@ columns:
 
     description:
         label: Дополнительно описание
+        invisible: true
         searchable: true
         
     paid_at:

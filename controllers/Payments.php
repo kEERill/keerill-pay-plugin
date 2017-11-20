@@ -1,6 +1,7 @@
 <?php namespace KEERill\Pay\Controllers;
 
 use Flash;
+use Redirect;
 use Exception;
 use Validator;
 use BackendMenu;
@@ -17,6 +18,8 @@ use KEERill\Pay\Exceptions\PayException;
  */
 class Payments extends Controller
 {
+    use \Backend\Traits\FormModelSaver;
+
     public $implement = [
         'Backend.Behaviors.FormController',
         'Backend.Behaviors.ListController',
@@ -31,6 +34,8 @@ class Payments extends Controller
 
     public $requiredPermissions = ['keerill.pay.payment'];
 
+    public $widgetItem = null;
+
     public function __construct()
     {
         parent::__construct();
@@ -38,11 +43,19 @@ class Payments extends Controller
         BackendMenu::setContext('KEERill.Pay', 'pay', 'payments');
 
         $this->vars['payOptionsWidget'] = null;
+
+        $this->initItemWidget();
     }
 
     public function create()
     {
         return false;
+    }
+
+    public function index()
+    {
+        $this->asExtension('FormController')->create();
+        return $this->asExtension('ListController')->index();
     }
 
     public function update() 
@@ -81,7 +94,12 @@ class Payments extends Controller
             throw new \ApplicationException('Недостаточно прав для выполнения данной операции');
         }
         
-        return $this->asExtension('RelationController')->onRelationButtonDelete();
+        $this->asExtension('RelationController')->onRelationButtonDelete();
+
+        /*
+         * Перезагрузка страницы
+         */
+        return Redirect::refresh();
     }
 
     public function index_onUpdateActionsPayments()
@@ -156,7 +174,7 @@ class Payments extends Controller
      */
     public function index_onCreateForm()
     {
-        $this->asExtension('FormController')->create();
+        $this->pageAction();
         return $this->makePartial('list_create_form');
     }
 
@@ -218,18 +236,8 @@ class Payments extends Controller
      */
     public function preview_onLoadCreateItemForm()
     {
-        /*
-         * Создание виджета, в качестве параметра передается алиас типа нового предмета
-         */
-        if (!$widget = $this->makeItemFormWidget(post('alias'))) {
-            throw new ApplicationException('Cannot create new form widget');
-        }
-
-        $widget->bindToController();
-        $widget->model->extendFormWidget($widget);
-
         return $this->makePartial('relation_form_items', [
-            'widget' => $widget,
+            'widget' => $this->widgetItem,
             'paymentId' => post('paymentId'),
             'alias' => post('alias'),
             'itemId' => false
@@ -262,18 +270,8 @@ class Payments extends Controller
             return $this->makePartial('relation_form_logs', ['widget' => $widget]);
         }
 
-        /*
-         * Создание виджета, алиас не передаётся так как у прелмета уже есть присвоеный тип 
-         */
-        if (!$widget = $this->makeItemFormWidget(false, post('manage_id'))) {
-            throw new ApplicationException('Cannot create new form widget');
-        }
-
-        $widget->bindToController();
-        $widget->model->extendFormWidget($widget);
-
         return $this->makePartial('relation_form_items', [
-            'widget' => $widget,
+            'widget' => $this->widgetItem,
             'itemId' => post('manage_id')
         ]);
     }
@@ -285,23 +283,12 @@ class Payments extends Controller
      */
     public function preview_onCreateItem()
     {
-        /*
-         * Создание виджета, в качестве параметра передается алиас типа нового предмета
-         */
-        if (!$widget = $this->makeItemFormWidget(post('alias'))) {
-            throw new ApplicationException('Cannot create new form widget');
-        }
-
         if (!$this->user->hasAccess('keerill.pay.payment.update_pay')) {
             throw new ApplicationException('Недостаточно прав для выполнения данной операции');
         }
 
-        $widget->bindToController();
-        $widget->model->extendFormWidget($widget);
-
-
-        $model = $widget->model;
-        $saveData = $widget->getSaveData();
+        $model = $this->widgetItem->model;
+        $saveData = $this->widgetItem->getSaveData();
 
         /*
          * Проверка и получение модели платежа для создания связи,
@@ -318,11 +305,11 @@ class Payments extends Controller
             throw new ApplicationException('Добавление предмета невозможно, платеж не является открытым');
         }
 
-        foreach ($saveData as $key => $value) {
-            $model->{$key} = $value;
+        $modelsToSave = $this->prepareModelsToSave($model, $saveData);
+        foreach ($modelsToSave as $modelToSave) {
+            $modelToSave->payment = $payment;
+            $modelToSave->save();
         }
-
-        $payment->items()->add($model);
 
         Flash::success('Предмет был успешно добавлен');
         
@@ -341,23 +328,8 @@ class Payments extends Controller
      */
     public function preview_onUpdateItem()
     {
-        /*
-         * Создание виджета, алиас не передаётся так как у прелмета уже есть присвоеный тип 
-         */
-        if (!$widget = $this->makeItemFormWidget(false, post('itemId'))) {
-            throw new ApplicationException('Cannot create new form widget');
-        }
-
-        if (!$this->user->hasAccess('keerill.pay.items.edit')) {
-            throw new ApplicationException('Недостаточно прав для выполнения данной операции');
-        }
-
-        $widget->bindToController();
-        $widget->model->extendFormWidget($widget);
-        
-        
-        $model = $widget->model;
-        $saveData = $widget->getSaveData();
+        $model = $this->widgetItem->model;
+        $saveData = $this->widgetItem->getSaveData();
 
         /*
          * Для того, чтобы изменять платеж, платеж должен быть со статусом "Открытый"
@@ -366,11 +338,10 @@ class Payments extends Controller
             throw new ApplicationException('Редактирование предмета невозможно, платеж не является открытым');
         }
 
-        foreach ($saveData as $key => $value) {
-            $model->{$key} = $value;
+        $modelsToSave = $this->prepareModelsToSave($model, $saveData);
+        foreach ($modelsToSave as $modelToSave) {
+            $modelToSave->save();
         }
-
-        $model->save();
 
         Flash::success('Предмет был успешно изменён');
         
@@ -383,33 +354,65 @@ class Payments extends Controller
     }
 
     /**
+     * Инициализация виджета предмета контроллера
+     * 
+     * @return void
+     */
+    public function initItemWidget()
+    {
+        $this->widgetItem = $this->makeItemFormWidget(
+            post('alias', false), 
+            (post('_relation_field') == 'items') ? post('manage_id', false) : post('itemId', false)
+        );
+
+        if (!$this->widgetItem) {
+            return;
+        }
+        
+        $this->widgetItem->bindEvent('form.extendFields', function ($fields) {
+            $this->widgetItem->model->formExtendFields($this->widgetItem, $fields);
+        });
+
+        $this->widgetItem->bindToController($this);
+    }
+
+    /**
      * Создание виджета формы
      * 
      * @param string $alias Алиас типа предмета, служит для присвоения к модели класса и новых полей
      * @param integer $id ID предмета
      * @return \Backend\Widget\Form Виджет формы
      */
-    protected function makeItemFormWidget($alias = false, $id = false)
+    protected function makeItemFormWidget($alias = false, $itemId = false)
     {
+        if ($alias === false && $itemId === false) {
+            return false;
+        }
+
         $class = false;
-        $model = null;
 
         if ($item = PaymentManager::findPaymentItemByAlias($alias)) {
             $class = $item->class;
         }
 
-        if ($id) {
-            $model = PaymentItem::find($id);
-        } else {
-            $model = new PaymentItem;
+        $config = $this->makeConfig('$/keerill/pay/models/paymentitem/fields.yaml');
+        $config->model = new PaymentItem;
+        $config->arrayName = class_basename(new PaymentItem);
+        $config->alias = 'PaymentItem';
+        $config->context = 'create';
+
+        if ($itemId) {
+            $config->model = $config->model->find($itemId);
+            $config->context = 'update';
+
+            if (!$config->model) {
+                throw new ApplicationException(Lang::get('backend::lang.model.not_found', [
+                    'class' => get_class($config->model), 'id' => $itemId
+                ]));
+            }
         }
 
-        $model->applyPaymentItemClass($class);
-
-        $config = $this->makeConfig('$/keerill/pay/models/paymentitem/fields.yaml');
-        $config->model = $model;
-        $config->arrayName = class_basename($model);
-        $config->context = ($id) ? 'update' : 'create';
+        $config->model->applyPaymentItemClass($class);
 
         $widget = $this->makeWidget('Backend\Widgets\Form', $config);
 

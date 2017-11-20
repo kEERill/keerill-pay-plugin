@@ -12,7 +12,7 @@ class CreatePaymentItemsTable extends Migration
             $table->engine = 'InnoDB';
             $table->increments('id')->unsigned();
 
-            $table->integer('payment_id');
+            $table->integer('payment_id')->nullable();
 
             $table->string('class_name');
             $table->text('options')->nullable();
