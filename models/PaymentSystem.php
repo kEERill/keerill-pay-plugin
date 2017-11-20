@@ -179,7 +179,7 @@ class PaymentSystem extends Model
         }
 
         $payment->payment = $this;
-        $this->fireEvent('keerill.pay.extendCreatePayment', [$payment]);
+        $this->fireEvent('keerill.pay.extendPayment', [$payment]);
         $payment->save();
     }
 }

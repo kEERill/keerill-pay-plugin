@@ -125,7 +125,7 @@ Class Gateway extends ModelBehavior {
 
         $this->model->rules = array_merge($this->model->rules, $this->defineValidationRules());
 
-        $this->model->bindEvent('keerill.pay.extendCreatePayment', function($payment) {
+        $this->model->bindEvent('keerill.pay.extendPayment', function($payment) {
             $this->extendCreateNewPayment($payment);
         });
     }
