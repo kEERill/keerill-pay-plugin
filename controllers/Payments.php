@@ -71,6 +71,7 @@ class Payments extends Controller
             if ($model->payment && count($model->options)) {
                 $config = $model->payment->getPayFieldConfig();
                 $config->model = $model;
+                $config->alias = 'PaymentOptionsInfo';
     
                 $widget = $this->makeWidget('Backend\Widgets\Form', $config);
                 $widget->bindToController();
