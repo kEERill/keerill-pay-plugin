@@ -14,14 +14,12 @@ class CreatePaymentsTable extends Migration
             $table->text('hash')->nullable();
 
             $table->integer('pay_method')->nullable();
-            $table->string('description')->nullabel();
+            $table->string('description')->nullable();
 
             $table->float('pay', 12, 2)->default(0)->unsigned();
             $table->timestamp('paid_at')->nullable();
 
             $table->integer('status')->default(1);
-            $table->string('message')->nullable();
-
             $table->text('options')->nullable();
 
             $table->timestamps();

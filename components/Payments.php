@@ -11,7 +11,6 @@ use Cms\Classes\ComponentBase;
 
 class Payments extends ComponentBase
 {
-
     public function componentDetails()
     {
         return [
@@ -30,16 +29,21 @@ class Payments extends ComponentBase
         ];
     }
 
+    /**
+     * Создание нового платежа
+     * 
+     * @return void
+     */
     public function onCreatePayment()
     {
         $data = [
-            'description' => 'asdasd',
             'user' => AuthManager::getUser()
         ];
 
         $items = [
             [
                 'nameItem' => 'pay_balance',
+                'description' => 'Всё супер',
                 'price' => '50'
             ],
             [

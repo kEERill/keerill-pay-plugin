@@ -19,6 +19,7 @@ class PaymentItem extends Model
      */
     protected $fillable = [
         'payment_id',
+        'description',
         'options',
         'price'
     ];

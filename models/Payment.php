@@ -50,13 +50,18 @@ class Payment extends Model
     ];
 
     /**
-     * @var array Fillable fields
+     * @var array Guarded  fields
      */
-    protected $fillable = [
-        'description',
-        'status',
-        'user'
+    protected $guarded = [
+        'pay_method',
+        'updated_at',
+        'created_at',
+        'options',
+        'paid_at',
+        'hash',
+        'pay'
     ];
+
 
     /**
      * @var array Relations
