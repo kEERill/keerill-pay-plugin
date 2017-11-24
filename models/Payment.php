@@ -354,7 +354,7 @@ class Payment extends Model
             $this->pay = 0;
             
             $this->items->each(function($item) {
-                $this->pay += $item->price;
+                $this->pay += $item->total_price;
             });
 
             $this->save();
