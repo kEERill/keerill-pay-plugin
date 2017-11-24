@@ -9,9 +9,11 @@ fields:
 
     quantity:
         label: Количество
+        span: left
         default: 1
 
     price:
         label: Стоимость предмета
         type: currency
+        span: right
         default: 0
