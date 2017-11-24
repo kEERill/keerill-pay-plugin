@@ -21,13 +21,17 @@ class PaymentItem extends Model
         'payment_id',
         'description',
         'options',
+        'quantity',
         'price'
     ];
 
     public $jsonable = ['options'];
 
     public $rules = [
-        'class_name' => 'required'
+        'class_name' => 'required',
+        'quantity' => 'required|integer|min:1',
+        'total_price' => 'integer',
+        'price' => 'integer'
     ];
 
     /**
@@ -38,6 +42,16 @@ class PaymentItem extends Model
             'KEERill\Pay\Models\Payment'
         ]
     ];
+
+    /**
+     * Получение общей суммы предмета
+     * 
+     * @return integer
+     */
+    public function getTotalPrice()
+    {
+        return $this->price * $this->quantity;
+    }
 
     /**
      * Добавление новых заполняемых полей, в зависимости от класса
@@ -86,8 +100,10 @@ class PaymentItem extends Model
             $this->description = $this->getMessageItem();
         }
 
+        $this->total_price = $this->getTotalPrice();
+
         if ($this->payment) {
-            $this->payment->pay += floatval(array_get($this->attributes, 'price', 0)) - array_get($this->original, 'price', 0);
+            $this->payment->pay += floatval($this->total_price - array_get($this->original, 'total_price', 0));
             $this->payment->forceSave();
         }
     }
@@ -101,7 +117,7 @@ class PaymentItem extends Model
     public function delete()
     {
         if ($this->payment && $this->price > 0) {
-            $this->payment->pay -= $this->price;
+            $this->payment->pay -= $this->total_price;
             $this->payment->forceSave();
         }
 

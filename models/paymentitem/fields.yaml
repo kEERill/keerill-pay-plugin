@@ -7,6 +7,10 @@ fields:
         label: Описание
         comment: Для автоматического заполнения описание, оставьте поле пустым
 
+    quantity:
+        label: Количество
+        default: 1
+
     price:
         label: Стоимость предмета
         type: currency

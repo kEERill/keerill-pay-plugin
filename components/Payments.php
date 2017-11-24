@@ -44,14 +44,16 @@ class Payments extends ComponentBase
             [
                 'nameItem' => 'pay_balance',
                 'description' => 'Всё супер',
+                'quantity' => '3',
                 'price' => '50'
             ],
             [
                 'nameItem' => 'pay_balance',
+                'quantity' => '1',
                 'price' => '80'
             ],
         ];
 
-        PaymentHelper::createPaymentWithItemsAndCode('asd', $data, $items);
+        PaymentHelper::createPaymentWithItems($data, $items);
     }
 }

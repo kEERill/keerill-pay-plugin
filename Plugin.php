@@ -15,6 +15,10 @@ use KEERill\Users\Exceptions\PayException;
  */
 class Plugin extends PluginBase
 {
+    public $require = [
+        'Responsiv.Currency'
+    ];
+
     /**
      * Returns information about this plugin.
      *

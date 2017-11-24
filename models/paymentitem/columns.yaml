@@ -13,6 +13,13 @@ columns:
     code:
         label: Код
 
+    quantity:
+        label: Количество
+
     price:
         label: Сумма
+        type: currency
+    
+    total_price:
+        label: Общая сумма
         type: currency
