@@ -1,0 +1,12 @@
+{
+    "name": "keerill/pay",
+    "description": "Pay plugin OctoberCMS",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "kEERill",
+            "email": "russia199797@mail.ru"
+        }
+    ],
+    "require": {}
+}

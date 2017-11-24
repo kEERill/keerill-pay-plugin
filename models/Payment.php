@@ -383,12 +383,15 @@ class Payment extends Model
     }
 
     /**
-     * 
      * Internal helper, create a hash for this invoice.
      * @return string
      */
     protected function createHash()
     {
+        if (class_exists('\Ramsey\Uuid\Uuid')) {
+            return \Ramsey\Uuid\Uuid::uuid1();
+        }
+        
         return md5(uniqid('Payment', microtime()));
     }
 
