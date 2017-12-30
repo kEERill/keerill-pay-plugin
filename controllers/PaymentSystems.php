@@ -93,6 +93,18 @@ class PaymentSystems extends Controller
     }
 
     /**
+     * {@inheritDoc}
+     */
+    public function update_onDelete()
+    {
+        if (!$this->user->hasAccess('keerill.pay.payment_system.remove')) {
+            throw new ApplicationException('Недостаточно прав для выполнения данной операции');
+        }
+
+        $this->asExtension('FormController')->update_onDelete();
+    }
+
+    /**
      * Наследование модели, наследуем класс платежного шлюза
      * 
      * @retrun void

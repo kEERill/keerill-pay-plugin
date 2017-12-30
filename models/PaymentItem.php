@@ -96,7 +96,7 @@ class PaymentItem extends Model
 
         $this->options = $configData;
 
-        if (!$this->description && !array_get($this->attributes, 'description')) {
+        if (!array_get($this->attributes, 'description')) {
             $this->description = $this->getMessageItem();
         }
 

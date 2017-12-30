@@ -228,7 +228,7 @@ class Plugin extends PluginBase
                         'label'       => 'Платежные системы',
                         'icon'        => 'icon-credit-card',
                         'url'         => Backend::url('keerill/pay/paymentsystems'),
-                        'permissions' => ['keerill.pay.payment_systems']
+                        'permissions' => ['keerill.pay.payment_system']
                     ]
                 ]   
             ]
