@@ -58,7 +58,7 @@ class PaymentSystems extends Controller
      * 
      * @return mixed
      */
-    public function create($gatewayAlias)
+    public function create($gatewayAlias, $context = null)
     {
         try {
             if (!$this->user->hasAccess('keerill.pay.payment_system.create')) {
@@ -71,6 +71,14 @@ class PaymentSystems extends Controller
         catch (\Exception $ex) {
             $this->handleError($ex);
         }
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function create_onSave($gatewayAlias, $context = null) 
+    {
+        return $this->asExtension('FormController')->create_onSave($context);
     }
 
     /**
