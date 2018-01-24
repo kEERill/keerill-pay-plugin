@@ -65,7 +65,7 @@ Class Gateway extends PaymentBehavior
      * @param KEERill\Pay\Models\Payment
      * @return void
      */
-    public function extendNewPaymentSystem($payment) {}
+    public function changePaymentSystem($payment) {}
 
     /**
      * Получение модели платежа по хэшу
