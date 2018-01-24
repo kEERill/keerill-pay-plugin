@@ -1,18 +1,23 @@
-1.0.1: First version of Pay
+1.0.1: 
+ - First version of Pay
 1.0.2:
- - Plugin alpha
- - Create tables
- - create_payment_systems_table.php
- - create_payments_table.php
+ - Plugin alpha. Create new tables
+ - 'create_payment_systems_table.php'
+ - 'create_payments_table.php'
 1.2.0:
  - Release Plugin Beta
 1.2.1:
  - Add new tables Payment logs and Item
- - create_payment_items_table.php
- - create_payment_logs_table.php
+ - 'create_payment_items_table.php'
+ - 'create_payment_logs_table.php'
 1.3.0:
  - Release new version. New file structure, new API payments, add new PaymentManager, add new Components. 
 1.3.1:
  - Add checkboxes in Payment controllers and add new opretion
 1.3.2:
  - Move methods of PaymentManager in Payment helper. Add Payment helper
+1.3.3:
+ - Add options cancel time out and class name by payments
+ - 'update_table_payments_and_systems.php'
+1.4.0:
+ - Add custom payment classes. Create new PaymentBehavior and moved methods of Payment mode in Payment helper

@@ -1,5 +1,6 @@
 <?php namespace KEERill\Pay\Models;
 
+use Str;
 use Model;
 
 /**
@@ -30,8 +31,7 @@ class PaymentItem extends Model
     public $rules = [
         'class_name' => 'required',
         'quantity' => 'required|integer|min:1',
-        'total_price' => 'integer',
-        'price' => 'integer'
+        'price' => 'required|min:0'
     ];
 
     /**
@@ -63,9 +63,23 @@ class PaymentItem extends Model
         return $this->fillable = array_merge($this->fillable, $fields);
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function beforeCreate()
     {
         $this->code = $this->getCodeItem();
+    }
+
+    /**
+     * Вызывается после заполнении модели данными, здесь мы наследуем класс типа предмета
+     * Также в атрибуты полей добавляются значения параметров предмета
+     * 
+     * @return void
+     */
+    public function afterFetch()
+    {
+        $this->applyPaymentItemClass();
     }
 
     /**
@@ -78,23 +92,7 @@ class PaymentItem extends Model
      */
     public function beforeSave()
     {
-        $configData = [];
-        $fieldConfig = $this->getFieldConfig();
-        $fields = isset($fieldConfig->fields) ? $fieldConfig->fields : [];
-
-        foreach ($fields as $name => $config) {
-            if (!array_key_exists($name, $this->attributes)) {
-                if (!array_key_exists($name . '_id', $this->attributes)) {
-                    continue;
-                }
-                $name = $name . '_id';
-            }
-
-            $configData[$name] = $this->attributes[$name];
-            unset($this->attributes[$name]);
-        }
-
-        $this->options = $configData;
+        $this->options = $this->getSavedParams();
 
         if (!array_get($this->attributes, 'description')) {
             $this->description = $this->getMessageItem();
@@ -143,7 +141,7 @@ class PaymentItem extends Model
             return false;
         }
 
-        return $class;
+        return Str::normalizeClassName($class);
     }
 
     /**
@@ -163,18 +161,6 @@ class PaymentItem extends Model
         }
 
         $this->class_name = $class;
-    }
-
-    /**
-     * Вызывается после заполнении модели данными, здесь мы наследуем класс типа предмета
-     * Также в атрибуты полей добавляются значения параметров предмета
-     * 
-     * @return void
-     */
-    public function afterFetch()
-    {
-        $this->applyPaymentItemClass();
-
-        $this->attributes = array_merge($this->options, $this->attributes);
+        $this->attributes = array_merge($this->getFilteredParams(), $this->attributes);
     }
 }

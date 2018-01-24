@@ -2,20 +2,21 @@
 #  Form Field Definitions
 # ===================================
 
+fields:
+    name:
+        label: Название
+        comment: Используется для отображения доступных способов оплаты
+        tab: Основное
+        span: left
+
+    code:
+        label: Уникальный код системы
+        comment: Код используется для работы API с платежами
+        tab: Основное
+        span: right
+
 tabs:
     fields:
-        name:
-            label: Название
-            comment: Используется для отображения доступных способов оплаты
-            tab: Основное
-            span: left
-
-        code:
-            label: Уникальный код системы
-            comment: Код используется для работы API с платежами
-            tab: Основное
-            span: right
-
         is_enable:
             label: Состояние системы
             comment: Если опция выключена, то оплата через эту систему будет невозможна
@@ -29,7 +30,20 @@ tabs:
 
         partial_name:
             label: Шаблон платежа
-            comment: Шаблон платежа, представляет собой partial с выводом данных платежа
+            comment: Представляет собой partial (фрагмент) с выводом данных платежа
             type: dropdown
-            tab: Основное
+            tab: Работа с платежами
+            span: left
+
+        information:
+            type: partial
+            path: $/keerill/pay/controllers/paymentsystems/_field_information.htm
+            tab: Работа с платежами
             span: right
+
+        pay_timeout:
+            label: Автоотклонение
+            comment: Для отключения впишите "0"
+            default: 0
+            tab: Работа с платежами
+            span: left

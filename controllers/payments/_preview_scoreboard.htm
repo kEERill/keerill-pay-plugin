@@ -33,3 +33,9 @@
         Оплачен: <?= $formModel->paid_at ? $formModel->paid_at->format('D, j M Y, H:i') : 'Не оплачено' ?>
     </p>
 </div>
+<?php if ($formModel->cancelled_at) : ?>
+    <div class="scoreboard-item title-value">
+        <h4>Действителен до</h4>
+        <p><?= $formModel->cancelled_at->format('D, j M Y, H:i') ?></p>
+    </div>
+<?php endif; ?>

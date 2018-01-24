@@ -16,12 +16,13 @@ class CreatePaymentSystemsTable extends Migration
             $table->string('code');
             $table->string('description')->nullable();
 
-            $table->string('class_name');
-            $table->text('options')->nullable();
+            $table->text('class_name');
             $table->string('gateway_name')->nullable();
 
             $table->boolean('is_enable')->default(false);
             $table->string('partial_name')->nullable();
+
+            $table->text('options')->nullable();
 
             $table->timestamps();
         });

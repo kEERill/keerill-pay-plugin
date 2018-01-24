@@ -13,15 +13,15 @@ class CreatePaymentItemsTable extends Migration
             $table->increments('id')->unsigned();
             $table->integer('payment_id')->nullable();
 
-            $table->string('class_name');
-            $table->text('options')->nullable();
-
             $table->string('description');
             $table->string('code')->nullable();
+            $table->string('class_name');
 
             $table->integer('quantity')->default(1)->unsigned();
             $table->float('price', 8, 2)->default(0)->unsigned();
             $table->float('total_price', 12, 2)->default(0)->unsigned();
+            
+            $table->text('options')->nullable();
             
             $table->timestamps();
         });

@@ -1,0 +1,12 @@
+{% set systems = __SELF__.getSystems() %}
+
+{% if not systems.count %}
+    <p>
+        Нет доступных способов оплаты
+    </p>
+{% else %}
+    Выберите способ оплаты:
+    {% for system in systems %}
+        <button data-request="onButtonChooseSystem" data-request-data="systemCode: '{{ system.code }}'">{{ system.name }}</button>
+    {% endfor %}
+{% endif %}

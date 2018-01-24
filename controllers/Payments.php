@@ -7,6 +7,7 @@ use Validator;
 use BackendMenu;
 use PaymentManager;
 use ApplicationException;
+use Payment as PaymentHelper;
 use Backend\Classes\Controller;
 use KEERill\Pay\Models\Payment;
 use KEERill\Pay\Models\PaymentLog;
@@ -42,8 +43,6 @@ class Payments extends Controller
 
         BackendMenu::setContext('KEERill.Pay', 'pay', 'payments');
 
-        $this->vars['payOptionsWidget'] = null;
-
         $this->initItemWidget();
     }
 
@@ -66,25 +65,27 @@ class Payments extends Controller
     public function preview($recordId = null)
     {
         try {
-            $model = $this->formFindModelObject($recordId);
-            
-            if ($model->payment && count($model->options)) {
-                $config = $model->payment->getPayFieldConfig();
-                $config->model = $model;
-                $config->alias = 'PaymentOptionsInfo';
-    
-                $widget = $this->makeWidget('Backend\Widgets\Form', $config);
-                $widget->bindToController();
-                $widget->setFormValues($model->options);
-    
-                $this->vars['payOptionsWidget'] = $widget;
-            }
+            return $this->asExtension('FormController')->preview($recordId);
         }
         catch (Exception $ex) {
             $this->handleError($ex);
         }
+    }
 
-        return $this->asExtension('FormController')->preview($recordId);
+    /**
+     * Добавляем в форму поля, в зависимости от платежного шлюза
+     * 
+     * @return void
+     */
+    public function formExtendFields($widget)
+    {
+        $model = $widget->model;
+        
+        if (!$model->checkPaymentClass()) {
+            return;
+        }
+        
+        $model->extendFields($widget);
     }
 
     public function onRelationButtonDelete()
@@ -111,23 +112,23 @@ class Payments extends Controller
             is_array($checkedIds) &&
             ($count = count($checkedIds))
         ) {
-            foreach ($checkedIds as $userId) {
-                if (!$payment = Payment::find($userId)) {
-                    continue;
-                }
+            $payments = Payment::find($checkedIds);
+            foreach ($payments as $payment) {
                 switch ($action) {
                     case 'delete':
                         if (!$this->user->hasAccess('keerill.pay.payment.remove')) {
                             throw new ApplicationException('Недостаточно прав для выполнения данной операции');
                         }
+
                         $payment->delete();
                         break;
                     case 'success':
                         if (!$this->user->hasAccess('keerill.pay.payment.confirm')) {
                             throw new ApplicationException('Недостаточно прав для выполнения данной операции');
                         }
+
                         try {
-                            $payment->paymentSetSuccessStatus();
+                            PaymentHelper::paymentSetSuccessStatus($payment, post());
                         } catch(\Exception $ex) {
                             $count--; 
                         }
@@ -136,8 +137,9 @@ class Payments extends Controller
                         if (!$this->user->hasAccess('keerill.pay.payment.cancel')) {
                             throw new ApplicationException('Недостаточно прав для выполнения данной операции');
                         }
+
                         try {
-                            $payment->paymentSetCancelledStatus(post('message'));
+                            PaymentHelper::paymentSetCancelledStatus($payment, post('message'));
                         } catch(\Exception $ex) {
                             $count--; 
                         }
@@ -371,7 +373,7 @@ class Payments extends Controller
         }
         
         $this->widgetItem->bindEvent('form.extendFields', function ($fields) {
-            $this->widgetItem->model->formExtendFields($this->widgetItem, $fields);
+            $this->widgetItem->model->extendFields($this->widgetItem);
         });
 
         $this->widgetItem->bindToController($this);
@@ -464,7 +466,7 @@ class Payments extends Controller
         }
 
         try {
-            $model->paymentSetSuccessStatus();
+            PaymentHelper::paymentSetSuccessStatus($model, post());
         } catch(Exception $ex) {
             Flash::error($ex->getMessage());
             return false;
@@ -501,7 +503,7 @@ class Payments extends Controller
         }
 
         try {
-            $model->paymentSetCancelledStatus(post('message'));
+            PaymentHelper::paymentSetCancelledStatus($model, post('message'));
         } catch(Exception $ex) {
             Flash::error($ex->getMessage());
             return false;
@@ -538,7 +540,7 @@ class Payments extends Controller
         }
 
         try {
-            $model->paymentUpdatePay();
+            PaymentHelper::paymentUpdatePay($model);
         } catch(Exception $ex) {
             Flash::error($ex->getMessage());
             return false;

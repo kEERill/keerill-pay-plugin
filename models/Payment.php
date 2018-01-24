@@ -1,8 +1,8 @@
 <?php namespace KEERill\Pay\Models;
 
+use Str;
 use Event;
 use Model;
-use BackendAuth;
 use ApplicationException;
 use Doctrine\DBAL\Query\QueryBuilder;
 use KEERill\Pay\Exceptions\PayException;
@@ -62,24 +62,23 @@ class Payment extends Model
         'pay'
     ];
 
-
     /**
      * @var array Relations
      */
     public $belongsTo = [
         'payment' => [
-            'KEERill\Pay\Models\PaymentSystem',
+            \KEERill\Pay\Models\PaymentSystem::class,
             'key' => 'pay_method'
         ]
     ];
 
     public $hasMany = [
         'logs' => [
-            'KEERill\Pay\Models\PaymentLog',
+            \KEERill\Pay\Models\PaymentLog::class,
             'delete' => true
         ],
         'items' => [
-            'KEERill\Pay\Models\PaymentItem',
+            \KEERill\Pay\Models\PaymentItem::class,
             'delete' => true
         ]
     ];
@@ -87,12 +86,12 @@ class Payment extends Model
     /**
      * @var array Даты
      */
-    public $dates = ['paid_at', 'created_at', 'updated_at'];
+    public $dates = ['cancelled_at', 'paid_at', 'created_at', 'updated_at'];
 
     /**
      * @var array Статусы платежа
      */
-    private $typeMessages = [
+    private static $typeMessages = [
         self::PAYMENT_NEW => 'Платеж открыт',
         self::PAYMENT_WAIT => 'Платеж обрабатывается',
         self::PAYMENT_SUCCESS => 'Платеж принят',
@@ -101,23 +100,11 @@ class Payment extends Model
     ];
 
     /**
-     * Добавление новых заполняемых полей
-     * 
-     * @param array Поля, которые нужно добавить
+     * Получение списка статусов 
      */
-    public function addFillableFields($fields = [])
+    public static function getStatuses()
     {
-        return $this->fillable = array_merge($this->fillable, $fields);
-    }
-
-    /**
-     * Получение локализованного текста статуса платежа
-     * 
-     * @return string
-     */
-    public function getLocalizationStatus()
-    {
-        return array_get($this->typeMessages, $this->status);
+        return self::$typeMessages;
     }
 
     /**
@@ -127,7 +114,17 @@ class Payment extends Model
      */
     public function getPaymentStatuses()
     {
-        return $this->typeMessages;
+        return self::$typeMessages;
+    }
+
+    /**
+     * Получение локализованного текста статуса платежа
+     * 
+     * @return string
+     */
+    public function getLocalizationStatus()
+    {
+        return array_get($this->getPaymentStatuses(), $this->status);
     }
 
     /**
@@ -138,6 +135,37 @@ class Payment extends Model
     public static function getOpenedCount()
     {
         return self::opened()->count();
+    }
+
+    /**
+     * Получение суммы платежа
+     * 
+     * @return integer
+     */
+    public function getPay($force = false)
+    {
+        if ($force) {
+            $this->items->each(function ($item) {
+                $this->pay += $item->total_price;
+            });
+        }
+        
+        return $this->pay;
+    }
+
+    /**
+     * Получение название партикла для вывода данных определенной
+     * платежной системы
+     * 
+     * @return string
+     */
+    public function getCustomPartial()
+    {
+        if (!$this->payment) {
+            return false;
+        }
+
+        return $this->payment->partial_name;
     }
 
     /**
@@ -191,20 +219,61 @@ class Payment extends Model
     }
 
     /**
-     * Вызывается для сохранения модели. После того, как у модели появиться способ оплаты,
-     * статус платежа изменяется
+     * Добавление новых заполняемых полей
+     * 
+     * @param array Поля, которые нужно добавить
+     */
+    public function addFillableFields($fields = [])
+    {
+        return $this->fillable = array_merge($this->fillable, $fields);
+    }
+
+    /*
+     *
+     * Events
+     * 
+     */
+
+    /**
+     * Вставка нового класса если моделе была присвоена новая платежная система
+     * т.е. новый способ оплаты
+     */
+    public function afterCreate()
+    {
+        if (!$this->class_name && $this->payment) {
+            if (!$className = $this->payment->getPaymentClass()) {
+                return;
+            }
+            $this->applyPaymentClass($className);
+            $this->save();
+        }
+    }
+
+    /**
+     * Вызывается до сохранения модели
+     * Здесь отфильтровываются поля платежного шлюза от полей модели
+     * Иначе будет ошибка о не существовании полей
      * 
      * @return void
      */
     public function beforeSave()
     {
-        if ($this->payment && !$this->status) {
-            $this->status = self::PAYMENT_WAIT;
-
-            $this->items->each(function($item) {
-                $item->changeStatusPayment($this);
-            });
+        if (!$this->checkPaymentClass()) {
+            return;
         }
+        
+        $this->options = $this->getSavedParams();
+    }
+
+    /**
+     * Вызывается после заполнении модели данными, здесь мы наследуем класс платежной системы
+     * Также в атрибуты полей добавляются значения параметров платежной системы
+     * 
+     * @return void
+     */
+    public function afterFetch()
+    {
+        $this->applyPaymentClass();
     }
 
     /**
@@ -238,136 +307,49 @@ class Payment extends Model
             throw $ex;
         }
     }
-    
+
     /**
-     * Подтверждение платежа
+     * Проверка на существования класса платежного шлюза
      * 
-     * @return void
+     * @return mixed
      */
-    public function paymentSetSuccessStatus($requestData = [])
+    public function checkPaymentClass($class = false)
     {
-        try {
-            if (!$this->hasActive()) {
-                throw new ApplicationException('Платеж уже подтвержден и невозможно сделать это ещё раз');
-            }
-
-            if ($this->pay <= 0) {
-                throw new ApplicationException('Некорректная сумма, сумма должна быть больше 0');
-            }
-
-            Event::fire('keerill.pay.beforeSuccessStatus', [$this]);
-
-            $this->paid_at = $this->freshTimestamp();
-
-            $this->changeStatusPayment(self::PAYMENT_SUCCESS);
-
-            $this->save();
-
-            Event::fire('keerill.pay.afterSuccessStatus', [$this]);
-
-        } catch(PayException $ex) {
-            PaymentLog::add(
-                $this, 
-                sprintf(
-                    'Произошла ошибка при подтверждении платежа: %s', 
-                    $ex->getMessage()
-                ), 
-                'error' , 
-                $requestData + $ex->getParams(), 
-                BackendAuth::getUser()
-            );
-
-            $this->status = self::PAYMENT_ERROR;
-            $this->paid_at = null;
-            $this->save();
-
-            throw $ex;
+        if (!$class && !$this->class_name) {
+            return false;
         }
 
-        PaymentLog::add($this, 'Платеж был успешно подтвержден', 'success' , $requestData, BackendAuth::getUser());
+        if (!$class) {
+            $class = $this->class_name;
+        }
+
+        if (!class_exists($class)) {
+            return false;
+        }
+
+        return Str::normalizeClassName($class);
     }
 
     /**
-     * Отклонение платежа
-     * 
-     * @param string $message Причина отказа платежа
+     * Наследование класса платежного шлюза
+     *
+     * @param string Класс
      * @return void
      */
-    public function paymentSetCancelledStatus($message = '')
+    public function applyPaymentClass($class = false)
     {
-        $message = ($message)?: 'Причина не указана';
-
-        try {
-
-            if (!$this->hasActive()) {
-                throw new ApplicationException('Платеж уже подтвержден и невозможно отклонить его');
-            }
-
-            Event::fire('keerill.pay.beforeCancelledStatus', [$this]);
-
-            $this->status = self::PAYMENT_CANCEL;
-            $this->message = $message;
-
-            $this->items->each(function($item) {
-                $item->changeStatusPayment($this);
-            });
-
-            $this->save();
-
-            Event::fire('keerill.pay.afterCancelledStatus', [$this]);
-
-        } catch(PayException $ex) {
-            PaymentLog::add(
-                $this, 
-                sprintf(
-                    'Произошла ошибка при отклонении платежа: %s', 
-                    $ex->getMessage()
-                ), 
-                'error' , 
-                [], 
-                BackendAuth::getUser()
-            );
-
-            $this->status = self::PAYMENT_ERROR;
-            $this->save();
-
-            throw $ex;
+        if (!$class = $this->checkPaymentClass($class)) {
+            return false;
         }
 
-        PaymentLog::add($this, sprintf('Платеж был успешно отклонен по причине: %s', $message), 'cancel' , [], BackendAuth::getUser());
-    }
-    
-    /**
-     * Принудительное пересчитывание суммы платежа
-     * 
-     * @return void
-     */
-    public function paymentUpdatePay()
-    {
-        try {
-            Event::fire('keerill.pay.beforeUpdatePay', [$this]);
-
-            if (!$this->hasActive()) {
-                throw new ApplicationException('Платеж должен быть открыть, чтобы пересчитать сумму');
-            }
-
-            $this->pay = 0;
-            
-            $this->items->each(function($item) {
-                $this->pay += $item->total_price;
-            });
-
-            $this->save();
-
-            Event::fire('keerill.pay.afterUpdatePay', [$this]);
-
-        } catch(PayException $ex) {
-            PaymentLog::add($this, $ex->getMessage(), 'error' , [], BackendAuth::getUser());
-
-            throw $ex;
+        if (!$this->isClassExtendedWith($class)) {
+            $this->extendClassWith($class);
         }
 
-        PaymentLog::add($this, 'Было произведено пересчитывание суммы платежа', 'update_success' , [], BackendAuth::getUser());   
+        $this->class_name = $class;
+        $this->attributes = array_merge($this->getFilteredParams(), $this->attributes);
+
+        return true;
     }
 
     /**
@@ -423,50 +405,5 @@ class Payment extends Model
     public function scopeSuccess($query)
     {
         $query->where('status', self::PAYMENT_SUCCESS);
-    }
-
-    /**
-     * Изменение данных платежа
-     * 
-     * @param {array} Массив параметров ['param_name' => 'param_value', ...]
-     * @return bool
-     */
-    public function setParam(array $data, $replace = true)
-    {
-        if (!is_array($data)) {
-            return false;
-        }
-
-        $params = $this->options;
-
-        foreach ($data as $key => $value) {
-            if (!$replace && $this->getParam($key)) {
-                continue;
-            }
-
-            $params[$key] = $value;
-        }
-
-        $this->options = $params;
-
-        return false;
-    }
-
-    /**
-     * Функция получения параметров платежа
-     * 
-     * @param string Название параметра
-     * @return string Значение параметра $name
-     */
-    public function getParam($name = null) {
-
-        if (!$name) {
-            return false;
-        }
-        if (!$this->options) {
-            $this->options = [];
-        }
-
-        return array_get($this->options, $name);
     }
 }

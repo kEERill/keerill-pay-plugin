@@ -66,7 +66,7 @@ class PaymentSystems extends Controller
             }
             
             $this->gatewayAlias = $gatewayAlias;
-            $this->asExtension('FormController')->create();
+            return $this->asExtension('FormController')->create();
         }
         catch (\Exception $ex) {
             $this->handleError($ex);
@@ -93,7 +93,7 @@ class PaymentSystems extends Controller
                 throw new ApplicationException('Недостаточно прав для выполнения данной операции');
             }
             
-            $this->asExtension('FormController')->update($recordId);
+            return $this->asExtension('FormController')->update($recordId);
         }
         catch (\Exception $ex) {
             $this->handleError($ex);
@@ -103,13 +103,13 @@ class PaymentSystems extends Controller
     /**
      * {@inheritDoc}
      */
-    public function update_onDelete()
+    public function update_onDelete($recordId = null)
     {
         if (!$this->user->hasAccess('keerill.pay.payment_system.remove')) {
             throw new ApplicationException('Недостаточно прав для выполнения данной операции');
         }
 
-        $this->asExtension('FormController')->update_onDelete();
+        return $this->asExtension('FormController')->update_onDelete($recordId);
     }
 
     /**
@@ -139,25 +139,7 @@ class PaymentSystems extends Controller
             return;
         }
         
-        $config = $model->getFieldConfig();
-
-        if (is_array($config->fields)) {
-            $widget->addFields($config->fields, 'primary');
-        }
-
-        /*
-        * Add the set up help partial
-        */
-        $setupPartial = $model->getPartialPath() . '/setup_help.htm';
-        if (File::exists($setupPartial)) {
-            $widget->addFields([
-                'setup_help' => [
-                    'type' => 'partial',
-                    'tab'  => 'Помощь с установкой',
-                    'path' => $setupPartial,
-                ]
-            ], 'primary');
-        }
+        $model->extendFields($widget);
     }
  
     /**

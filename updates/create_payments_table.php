@@ -21,6 +21,7 @@ class CreatePaymentsTable extends Migration
 
             $table->integer('status')->default(1);
             $table->string('message')->nullable();
+
             $table->text('options')->nullable();
 
             $table->timestamps();

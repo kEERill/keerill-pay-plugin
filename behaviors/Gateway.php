@@ -1,26 +1,10 @@
 <?php namespace KEERill\Pay\Behaviors;
 
-use System\Classes\ModelBehavior;
+use ApplicationException;
+use KEERill\Pay\Models\Payment as PaymentModel;
 
-Class Gateway extends ModelBehavior {
-
-    use \System\Traits\ConfigMaker;
-
-    /**
-     * @var array Новые поля для платежного шлюза
-     */
-    private $configFields;
-
-    /**
-     * @var array Поля для платежа
-     */
-    private $configPayFields;
-
-    /**
-     * @var \KEERill\Pay\Models\PaymentSystem
-     */
-    protected $model;
-
+Class Gateway extends PaymentBehavior 
+{
     /**
      * Основная информация платежного шлюза
      *
@@ -34,71 +18,6 @@ Class Gateway extends ModelBehavior {
         ];
     }
 
-    public function __construct($model = null)
-    {
-        parent::__construct($model);
-
-        $this->configPath = $this->guessConfigPathFrom($this);
-        $this->configFields = $this->makeConfig($this->defineFromFields());
-        $this->configPayFields = $this->makeConfig($this->definePayFields());
-
-        if (!$model) {
-            return;
-        }
-
-        $this->model = $model;
-
-        $this->boot();
-    }
-
-    /**
-     * Правила валидации
-     *
-     * @return array
-     */
-    public function defineValidationRules()
-    {
-        return [];
-    }
-
-    /**
-     * Поля для платежного шлюза
-     *
-     * @return string
-     */
-    public function defineFromFields()
-    {
-        return 'fields.yaml';
-    }
-
-    /**
-     * Поля для платежного шлюза
-     *
-     * @return string
-     */
-    public function definePayFields()
-    {
-        return 'pay.yaml';
-    }
-
-    /**
-     * Получение новых полей, предусмотренной платежной системой
-     * @return array Fields
-     */
-    public function getFieldConfig()
-    {
-        return $this->configFields;
-    }
-
-    /**
-     * Получение новых полей, предусмотренной платежной системой
-     * @return array Fields
-     */
-    public function getPayFieldConfig()
-    {
-        return $this->configPayFields;
-    }
-
     /**
      * Render setup help
      * @return string
@@ -109,24 +28,25 @@ Class Gateway extends ModelBehavior {
     }
 
     /**
-     * Инициализация платежного шлюза, с привязкой модели
-     *
-     * @param $model \KEERill\Pay\Models\PaymentSystem
+     * Получение класса платежа
+     * Верните false, чтобы отключить присвоение нового класса
+     * 
+     * @return string
+     */
+    public function getPaymentClass()
+    {
+        return false;
+    }
+
+    /**
+     * {@inheritdoc}
      */
     public function boot()
     {
-        if (!$this->model->exists) {
-            $this->initConfigData($this->model);
-        }
+        parent::boot();
 
-        if (!$this->model->rules) {
-            $this->model->rules = [];
-        }
-
-        $this->model->rules = array_merge($this->model->rules, $this->defineValidationRules());
-
-        $this->model->bindEvent('keerill.pay.extendPayment', function($payment) {
-            $this->extendCreateNewPayment($payment);
+        $this->model->bindEvent('keerill.pay.changePaymentSystem', function($payment) {
+            $this->changePaymentSystem($payment);
         });
     }
 
@@ -140,17 +60,33 @@ Class Gateway extends ModelBehavior {
     }
 
     /**
-     * Инициализация параметров шлюза
-     *
-     * @param $model \KEERill\Pay\Models\PaymentSystem
-     */
-    public function initConfigData($model) {}
-
-    /**
      * Вызывается, когда присваивается платеж к данной платежной системе
      * 
      * @param KEERill\Pay\Models\Payment
      * @return void
      */
-    public function extendCreateNewPayment($payment) {}
+    public function extendNewPaymentSystem($payment) {}
+
+    /**
+     * Получение модели платежа по хэшу
+     * 
+     * @param string хэш платежа
+     * @return KEERill\Pay\Models\Payment Модель платежа 
+     */
+    protected function getPaymentModelToHash($hash)
+    {
+        if (!$hash) {
+            throw new ApplicationException('Hash is required');
+        }
+
+        if (!$payment = PaymentModel::opened()->where('hash', $hash)->where('pay_method', $this->model->id)->first()) {
+            throw new ApplicationException('Payment is not found');
+        }
+
+        if ($payment->hasOpen()) {
+            $payment->changeStatusPayment(PaymentModel::PAYMENT_WAIT);
+        }
+
+        return $payment;
+    }
 }

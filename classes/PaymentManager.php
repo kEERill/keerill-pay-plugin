@@ -182,6 +182,10 @@ Class PaymentManager
          */
         $collection = [];
 
+        if (!is_array($this->gateways)) {
+            return new Collection($collection);
+        }
+
         foreach ($this->gateways as $gateway) {
             if (!class_exists($gateway->class))
                 continue;
@@ -224,6 +228,10 @@ Class PaymentManager
          * Enrich the collection with gateway objects
          */
         $collection = [];
+
+        if (!is_array($this->paymentItems)) {
+            return new Collection($collection);
+        }
 
         foreach ($this->paymentItems as $item) {
             if (!class_exists($item->class))

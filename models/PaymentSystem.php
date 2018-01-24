@@ -1,5 +1,6 @@
 <?php namespace KEERill\Pay\Models;
 
+use Str;
 use Model;
 use KEERill\Pay\Exceptions\PayException;
 
@@ -21,7 +22,7 @@ class PaymentSystem extends Model
     public $rules = [
         'name' => 'required',
         'code' => 'required|regex:/^[\w]{3,}$/i',
-        'min_pay' => 'integer|min: 0'
+        'pay_timeout' => 'required|integer|min:0'
     ];
 
     /**
@@ -36,11 +37,16 @@ class PaymentSystem extends Model
 
     public $hasMany = [
         'payments' => [
-            Payment::class,
+            \KEERill\Pay\Models\Payment::class,
             'key' => 'id',
             'other_key' => 'pay_method'
         ]
     ];
+
+    /**
+     * @var array
+     */
+    protected $partialToRender = [];
 
     /**
      * Хэшированый код платежной системы
@@ -53,13 +59,19 @@ class PaymentSystem extends Model
     }
 
     /**
-     * Доступные типы оповещений
+     * Доступные фрагменты
      *
      * @return array
      */
     public function getPartialNameOptions()
     {
-        return ['' => 'Использовать стандартный шаблон'] + \Cms\Classes\Partial::lists('baseFilename', 'baseFilename');
+        $partials = \Cms\Classes\Partial::all();
+
+        $partials->each(function($partial) {
+            $this->partialToRender[$partial->baseFileName] = sprintf('%s [%s]', $partial->description, $partial->baseFileName);
+        });
+
+        return ['' => 'Не использовать шаблон'] + $this->partialToRender;
     }
 
     /**
@@ -73,6 +85,16 @@ class PaymentSystem extends Model
     }
 
     /**
+     * Получить количество минут для автоотклонения платежа
+     * 
+     * @return integer
+     */
+    public function getTimeout()
+    {
+        return $this->pay_timeout;
+    }
+
+    /**
      * Получение состояния системы
      * 
      * @return bool
@@ -83,6 +105,22 @@ class PaymentSystem extends Model
     }
 
     /**
+     * Проверка на испольнование автоотклонения
+     * 
+     * @return bool
+     */
+    public function hasUseTimeout()
+    {
+        return $this->pay_timeout > 0;
+    }
+
+    /*
+     *
+     * Events
+     * 
+     */
+
+    /**
      * Вызывается до сохранения модели
      * Здесь отфильтровываются поля платежного шлюза от полей модели
      * Иначе будет ошибка о не существовании полей
@@ -91,20 +129,18 @@ class PaymentSystem extends Model
      */
     public function beforeSave()
     {
-        $configData = [];
-        $fieldConfig = $this->getFieldConfig();
-        $fields = isset($fieldConfig->fields) ? $fieldConfig->fields : [];
+        $this->options = $this->getSavedParams();
+    }
 
-        foreach ($fields as $name => $config) {
-            if (!array_key_exists($name, $this->attributes)) {
-                continue;
-            }
-
-            $configData[$name] = $this->attributes[$name];
-            unset($this->attributes[$name]);
-        }
-
-        $this->options = $configData;
+    /**
+     * Вызывается после заполнении модели данными, здесь мы наследуем класс платежной системы
+     * Также в атрибуты полей добавляются значения параметров платежной системы
+     * 
+     * @return void
+     */
+    public function afterFetch()
+    {
+        $this->applyGatewayClass();
     }
 
     /**
@@ -126,20 +162,7 @@ class PaymentSystem extends Model
             return false;
         }
 
-        return $class;
-    }
-
-    /**
-     * Вызывается после заполнении модели данными, здесь мы наследуем класс платежной системы
-     * Также в атрибуты полей добавляются значения параметров платежной системы
-     * 
-     * @return void
-     */
-    public function afterFetch()
-    {
-        $this->applyGatewayClass();
-
-        $this->attributes = array_merge($this->options, $this->attributes);
+        return Str::normalizeClassName($class);
     }
 
     /**
@@ -160,7 +183,14 @@ class PaymentSystem extends Model
 
         $this->class_name = $class;
         $this->gateway_name = array_get($class::gatewayDetails(), 'name', 'Unknown');
+        $this->attributes = array_merge($this->getFilteredParams(), $this->attributes);
     }
+
+    /*
+     *
+     * Scopes
+     * 
+     */
 
     /**
      * Scope активных платежных систем

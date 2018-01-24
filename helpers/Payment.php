@@ -1,7 +1,11 @@
 <?php namespace KEERill\Pay\Helpers;
 
 use Event;
+use BackendAuth;
+use Carbon\Carbon;
 use PaymentManager;
+use ApplicationException;
+use KEERill\Pay\Models\PaymentLog;
 use KEERill\Pay\Models\PaymentItem;
 use KEERill\Pay\Models\PaymentSystem;
 use KEERill\Pay\Exceptions\PayException;
@@ -9,8 +13,6 @@ use KEERill\Pay\Models\Payment as PaymentModel;
 
 Class Payment 
 {
-    use \October\Rain\Support\Traits\Emitter;
-
     /**
      * Создание нового платежа с предметами, передавая конкретный код платежной системы
      * 
@@ -43,9 +45,11 @@ Class Payment
                 $this->setPaymentMethod($payment, $paymentSystem);
             }
             catch(\Exception $ex) {
-                throw new PayException('При выполнении операции произошла ошибка с кодом PH-02', post());
+                throw new PayException($ex->getMessage(), post());
             }
         }
+
+        return $payment;
     }
 
     /**
@@ -58,7 +62,7 @@ Class Payment
     public function createPaymentWithItems($data = [], $items = [], $throwException = true)
     {
         /**
-         * Ошибка PH-03: Переданные данные платежа не являются массивами [method: createpaymentWithItems]
+         * Ошибка PH-03: Переданные данные платежа не являются массивами [method: createPaymentWithItems]
          */
         if (!is_array($data) || !is_array($items)) {
             throw new PayException('При выполнении операции произошла ошибка с кодом PH-03', post(), true);
@@ -67,15 +71,14 @@ Class Payment
         $payment = new PaymentModel;
         $payment->fill($data);
 
-        $filteredItems = $this->filterAvailabilityItems($items, $throwException);
+        Event::fire('keerill.pay.beforeCreatePayment', [$this, $payment, $data, $items]);
 
-        $this->fireEvent('keerill.pay.extendCreatePayment', [$this, $payment, $data, $filteredItems]);
-
+        $this->addTimeCancelled($payment, 15);
         $payment->save();
 
-        $this->addItemsToPayment($payment, $filteredItems, $throwException);
+        Event::fire('keerill.pay.afterCreatePayment', [$this, $payment, $data, $items]);
 
-        $this->fireEvent('keerill.pay.afterCreatePayment', [$this, $payment]);
+        $this->addItemsToPayment($payment, $items, $throwException);
 
         return $payment;
     }
@@ -88,13 +91,15 @@ Class Payment
      * @param bool Вызывать исключение, если предмет не найден?
      * @return bool
      */
-    public function addItemsToPayment(PaymentModel $payment, $items, $throwException = true)
+    public function addItemsToPayment(PaymentModel $payment, array $items, $throwException = true)
     {
-        if (!$items || !is_array($items)) {
-            return false;
+        if (!count($items)) {
+            throw new ApplicationException('Items is reqiured');
         }
 
-        foreach ($items as $item => $params) {
+        $filteredItems = $this->filterAvailabilityItems($items, $throwException);
+
+        foreach ($filteredItems as $item => $params) {
             if (!$itemClass = PaymentManager::findPaymentItemByAlias(array_get($params, 'nameItem', false))) {
                 if ($throwException) {
                     throw new PayException(sprintf(
@@ -113,7 +118,7 @@ Class Payment
             $payment->items()->add($newItem);
         }
 
-        return true;
+        $payment->getPay(true);
     }
 
     /** 
@@ -123,10 +128,10 @@ Class Payment
      * @param bool Вызывать исключение, если предмет не найден
      * @return array Доступные предметы
      */
-    public function filterAvailabilityItems($items, $throwException = true)
+    public function filterAvailabilityItems(array $items, $throwException = true)
     {
-        if (!$items || !is_array($items)) {
-            return [];
+        if (!count($items)) {
+            throw new ApplicationException('Items is reqiured');
         }
 
         $filteredItems = [];
@@ -161,11 +166,175 @@ Class Payment
          * Ошибка PH-04: У платежа уже выбран способ оплаты
          */
         if ($payment->payment) {
-            throw new PayException('При выполнении операции произошла ошибка с кодом PH-04', post(), false);
+            throw new PayException('При выполнении операции произошла ошибка с кодом PH-04');
         }
 
         $payment->payment = $paymentSystem;
-        $paymentSystem->fireEvent('keerill.pay.extendPayment', [$payment]);
+        $payment->cancelled_at = null;
+
+        if ($className = $paymentSystem->getPaymentClass()) {
+            $payment->applyPaymentClass($className);
+        }
+        
+        if ($paymentSystem->hasUseTimeout()) {
+            $this->addTimeCancelled($payment, $paymentSystem->getTimeout());
+        }
+
         $payment->save();
+        
+        $paymentSystem->fireEvent('keerill.pay.changePaymentSystem', [$payment]);
+    }
+
+    /**
+     * Добавление времени для автоотклонения
+     * 
+     * @param PaymentModel Модель платежа
+     * @param integer Время, в минутах
+     * @return void
+     */
+    public function addTimeCancelled(PaymentModel $payment, $minutes)
+    {
+        if (intval($minutes) <= 0) {
+            return;
+        }
+
+        if (!$payment->cancelled_at) {
+            $payment->cancelled_at = new Carbon;
+        }
+
+        $cancel = clone $payment->cancelled_at;
+        $cancel->addMinutes(intval($minutes));
+
+        $payment->cancelled_at = $cancel;
+    }
+
+    /*
+     *
+     * Изменения статуса платежа
+     * 
+     */
+
+    /**
+     * Подтверждение платежа
+     * 
+     * @param PaymentModel Модель платежа
+     * @param array Входные данные
+     * @return void
+     */
+    public function paymentSetSuccessStatus(PaymentModel $payment, array $requestData)
+    {
+        try {
+            if (!$payment->hasActive()) {
+                throw new ApplicationException('Платеж уже подтвержден и невозможно сделать это ещё раз');
+            }
+
+            if ($payment->pay <= 0) {
+                throw new ApplicationException('Некорректная сумма, сумма должна быть больше 0');
+            }
+
+            Event::fire('keerill.pay.beforeSuccessStatus', [$this]);
+
+            $payment->paid_at = $payment->freshTimestamp();
+            $payment->changeStatusPayment(PaymentModel::PAYMENT_SUCCESS);
+            $payment->save();
+
+            Event::fire('keerill.pay.afterSuccessStatus', [$payment]);
+        } 
+        catch(PayException $ex) {
+            PaymentLog::add($payment, [
+                'message' => sprintf('Произошла ошибка при подтверждении платежа: %s', $ex->getMessage()),
+                'code' => 'error',
+                'request_data' => $requestData
+            ], BackendAuth::getUser());
+
+            $payment->changeStatusPayment(PaymentModel::PAYMENT_ERROR);
+            $payment->paid_at = null;
+            $payment->save();
+
+            throw $ex;
+        }
+
+        PaymentLog::add($payment, [
+            'message' => 'Платеж был успешно подтвержден',
+            'code' => 'success',
+            'request_data' => $requestData
+        ], BackendAuth::getUser());
+    }
+
+    /**
+     * Отклонение платежа
+     * 
+     * @param PaymentModel $payment Модель платежа
+     * @param string $message Причина отказа платежа
+     * @return void
+     */
+    public function paymentSetCancelledStatus(PaymentModel $payment, $message = '')
+    {
+        $message = ($message) ?: 'Причина не указана';
+
+        try {
+            if (!$payment->hasActive()) {
+                throw new ApplicationException('Платеж уже подтвержден и невозможно отклонить его');
+            }
+
+            Event::fire('keerill.pay.beforeCancelledStatus', [$payment]);
+
+            $payment->message = $message;
+            $payment->changeStatusPayment(PaymentModel::PAYMENT_CANCEL);
+            $payment->save();
+
+            Event::fire('keerill.pay.afterCancelledStatus', [$payment]);
+
+        } 
+        catch(PayException $ex) {
+            PaymentLog::add($payment, [
+                'message' => sprintf('Произошла ошибка при отклонении платежа: %s', $ex->getMessage()),
+                'code' => 'error'
+            ], BackendAuth::getUser());
+
+            $payment->changeStatusPayment(PaymentModel::PAYMENT_ERROR);
+            $payment->save();
+
+            throw $ex;
+        }
+
+        PaymentLog::add($payment, [
+            'message' => sprintf('Платеж был успешно отклонен по причине: %s', $message),
+            'code' => 'cancel'
+        ], BackendAuth::getUser());
+    }
+
+    /**
+     * Принудительное пересчитывание суммы платежа
+     * 
+     * @param PaymentModel $payment Модель платежа
+     * @return void
+     */
+    public function paymentUpdatePay(PaymentModel $payment)
+    {
+        if (!$payment->hasActive()) {
+            throw new ApplicationException('Платеж должен быть активным, чтобы пересчитать сумму');
+        }
+
+        Event::fire('keerill.pay.beforeUpdatePay', [$payment]);
+
+        $payment->pay = 0;
+        
+        if (!$items = $payment->items) {
+            throw new ApplicationException('В платеже отсутствуют предметы для пересчитывании суммы');
+        }
+
+        foreach ($items as $item) {
+            $payment->pay += $item->getTotalPrice();
+        }
+
+        $payment->save();
+
+        Event::fire('keerill.pay.afterUpdatePay', [$payment]);
+
+        PaymentLog::add($payment, [
+            'message' => 'Было произведено пересчитывание суммы платежа',
+            'code' => 'update_pay'
+        ], BackendAuth::getUser());
     }
 }

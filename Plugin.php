@@ -88,8 +88,7 @@ class Plugin extends PluginBase
     public function registerComponents()
     {
         $this->components = [
-            'KEERill\Pay\Components\PaymentInfo' => 'pay_payment',
-            'KEERill\Pay\Components\Payments' => 'payments',
+            'KEERill\Pay\Components\PaymentInfo' => 'pay_payment'
         ];
 
         Event::fire('keerill.pay.extendsComponents', [$this]);
@@ -170,12 +169,7 @@ class Plugin extends PluginBase
                 'label' => 'Возможность удалять записи лога платежа',
                 'order' => 21
             ],
-            'keerill.pay.params.custom' => [
-                'tab' => 'Платежи',
-                'label' => 'Доступ к просмотру кастомных параметров платежа',
-                'order' => 22
-            ],
-            'keerill.pay.params.base' => [
+            'keerill.pay.params' => [
                 'tab' => 'Платежи',
                 'label' => 'Доступ к просмотру основных параметров платежа',
                 'order' => 23
@@ -240,10 +234,10 @@ class Plugin extends PluginBase
      * 
      * @return array
      */
-    public function registerPaymentGateways()
-    {
-        return [
-            'KEERill\Pay\Payments\Gateways\Bitcoin' => 'bitcoin'
-        ];
-    }
+    // public function registerPaymentGateways()
+    // {
+    //     return [
+    //         'KEERill\Pay\Payments\Gateways\Bitcoin' => 'bitcoin'
+    //     ];
+    // }
 }

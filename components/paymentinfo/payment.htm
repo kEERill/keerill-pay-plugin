@@ -1,0 +1,57 @@
+{% set payment = __SELF__.getPayment() %}
+{% set customPartial = payment.getCustomPartial() %}
+{% set items = payment.items %}
+
+<table style="width: 100%;">
+    <tr>
+        <td>Хэш платежа</td>
+        <td>{{ payment.hash }}</td>
+    </tr>
+    <tr>
+        <td>Статус</td>
+        <td>{{ payment.getLocalizationStatus() }}</td>
+    </tr>
+    <tr>
+        <td>Способ оплаты</td>
+        <td>{{ payment.payment.name|default('Не выбран') }}</td>
+    </tr>
+    <tr>
+        <td>Действителен до</td>
+        <td>{{ payment.cancelled_at|date('Y.m.d H:i') }}</td>
+    </tr>
+</table>
+
+<table style="width: 100%">
+    <thead>
+        <th>Название</th>
+        <th>Количество</th>
+        <th align="right">Стоимость за 1 шт.</th>
+        <th align="right">Итоговая стоимость</th>
+    </thead>
+    <tbody>
+        {% if not items %}
+            <tr>
+                 <td colspan="4" style="text-align: center">Предметы отсутствуют</td>
+            </tr>
+        {% else %}
+            {% for item in items %}
+                <tr>
+                    <td>{{ item.description }}</td>
+                    <td align="center">{{ item.quantity }}</td>
+                    <td align="right">{{ item.price|currency }}</td>
+                    <td align="right">{{ item.total_price|currency }}</td>
+                </tr>
+            {% endfor %}
+        {% endif %}
+        <tr>
+            <td colspan="4" style="text-align: right;"> Итоговая сумма: <b>{{ payment.getPay()|currency }}</b></td>  
+        </tr>
+    </tbody>
+</table>
+
+{% if not payment.payment %}
+    {% partial __SELF__ ~ '::systems' %}
+{% endif %}
+{% if customPartial %}
+    {% partial customPartial payment=payment %}
+{% endif %}

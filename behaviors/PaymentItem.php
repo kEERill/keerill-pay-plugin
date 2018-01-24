@@ -1,41 +1,7 @@
 <?php namespace KEERill\Pay\Behaviors;
 
-use System\Classes\ModelBehavior;
-
-Class PaymentItem extends ModelBehavior {
-
-    use \System\Traits\ConfigMaker;
-    
-    /**
-     * @var array Поля предмета платежа
-     */
-    private $configFields;
-
-    /**
-     * @var \KEERill\Pay\Models\PaymentItem
-     */
-    protected $model;
-
-    public function __construct($model = null)
-    {
-        parent::__construct($model);
-
-        $this->configPath = $this->guessConfigPathFrom($this);
-        $this->configFields = $this->makeConfig($this->defineFromFields());
-
-        if (!$model) {
-            return;
-        }
-
-        $this->model = $model;
-
-        /**
-         * Запуск класса
-         *
-         * @return void
-         */
-        $this->boot();
-    }
+Class PaymentItem extends PaymentBehavior 
+{
 
     /**
      * Информация о предмете платежа
@@ -51,26 +17,6 @@ Class PaymentItem extends ModelBehavior {
     } 
 
     /**
-     * Регистрация правил валидации
-     *
-     * @return array Массив с правилами валидации
-     */
-    public function defineValidationRules()
-    {
-        return [];
-    }
-
-    /**
-     * Регистрация новых полей
-     * 
-     * @return string
-     */
-    public function defineFromFields()
-    {
-        return 'fields.yaml';
-    }
-
-    /**
      * Добавление новых заполняемых полей в модель
      * 
      * @return array
@@ -78,16 +24,6 @@ Class PaymentItem extends ModelBehavior {
     public function defineFillableFields()
     {
         return [];
-    }
-
-    /**
-     * Новые поля для предмета
-     *
-     * @return Config
-     */
-    public function getFieldConfig()
-    {
-        return $this->configFields;
     }
 
     /**
@@ -111,33 +47,12 @@ Class PaymentItem extends ModelBehavior {
     }
 
     /**
-     * Инициализация
-     *
-     * @param $model \KEERill\Pay\Models\PaymentItem
+     * {@inheritdoc}
      */
     public function boot()
     {
-        if (!$this->model->rules) {
-            $this->model->rules = [];
-        }
-
-        $this->model->rules = array_merge($this->model->rules, $this->defineValidationRules());
+        parent::boot();
         $this->model->addFillableFields($this->defineFillableFields());
-    }
-
-    /**
-     * Наследование формы виджета для отображения формы создания и редактирования предмета
-     * 
-     * @param Backend\Widgets\Form $widget виджет формы
-     * @return void
-     */
-    public function formExtendFields($widget, $fields) 
-    {
-        $config = $this->getFieldConfig();
-        
-        if ($config->fields) {
-            $widget->addFields($config->fields, 'primary');
-        }
     }
 
     /**

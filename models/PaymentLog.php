@@ -18,8 +18,6 @@ class PaymentLog extends Model
      */
     protected $fillable = [
         'request_data',
-        'user_id',
-        'payment_id',
         'message',
         'code'
     ];
@@ -58,26 +56,24 @@ class PaymentLog extends Model
      * Создание новой записи о действиях над платежом
      * 
      * @param KEERill\Pay\Models\Payment $payment Модель платежа
-     * @param string $message Сообщение
-     * @param string $code Уникальный код операции
-     * @param array $request_data Полученные параметры
+     * @param array Опции
      * @param Backend\Models\User Модель пользователя
      * @return PaymentLog модель
      */
-    public static function add(Payment $payment, $message, $code, $request_data= [], $user = null)
+    public static function add(Payment $payment, array $options, $user = null)
     {
         $record = new static;
+
+        $data = array_merge([
+            'message' => 'Параметр `message` не был передан',
+            'code' => 'error'
+        ], $options);
         
         $record->payment = $payment;
         $record->user = $user;
-
         $record->ip_address = Request::getClientIp();
-
-        $record->message = $message;
-        $record->code = $code;
-
-        $record->request_data = $request_data;
-
+        
+        $record->fill($data);
         $record->save();
 
 		return $record;

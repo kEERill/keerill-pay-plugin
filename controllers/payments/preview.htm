@@ -50,10 +50,7 @@
             <?php if ($this->user->hasAccess('keerill.pay.params.*')) : ?>
                 <div class="tab-pane">
                     <div class="padded-container">
-                        <?php if ($this->user->hasAccess('keerill.pay.params.custom')) : ?>
-                            <?= $this->makePartial('preview_options') ?>
-                        <?php endif; ?>
-                        <?php if ($this->user->hasAccess('keerill.pay.params.base')) : ?>
+                        <?php if ($this->user->hasAccess('keerill.pay.params')) : ?>
                             <?= $this->formRenderPreview() ?>
                         <?php endif; ?>
                     </div>
