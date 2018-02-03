@@ -152,6 +152,14 @@ Class PaymentBehavior extends ModelBehavior
         }
 
         $this->model->rules = array_merge($this->model->rules, $this->defineValidationRules());
+
+        $this->model->bindEvent('model.beforeSave', function() {
+            $this->model->options = $this->getSavedParams();
+        });
+
+        $this->model->bindEvent('model.afterSave', function() {
+            $this->model->attributes = array_merge($this->getFilteredParams(), $this->model->attributes);
+        });
     }
 
     /**

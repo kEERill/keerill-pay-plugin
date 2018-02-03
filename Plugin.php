@@ -28,7 +28,7 @@ class Plugin extends PluginBase
     {
         return [
             'name'        => 'Платежные системы',
-            'description' => 'Плагин для управления платежами и балансом пользователя',
+            'description' => 'Плагин для управления платежами',
             'author'      => 'KEERill',
             'icon'        => 'icon-leaf'
         ];

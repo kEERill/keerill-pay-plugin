@@ -564,6 +564,10 @@ class Payments extends Controller
         if($record->status == Payment::PAYMENT_CANCEL || $record->status == Payment::PAYMENT_ERROR) {
             return 'negative';
         }
+
+        if ($record->hasSuccess()) {
+            return 'success';
+        }
         
         if ($record->hasOpen()) {
             return 'new';

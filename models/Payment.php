@@ -37,7 +37,8 @@ class Payment extends Model
      * @var string Правила валидации
      */
     public $rules = [
-        'payment_id' => 'integer|exists:oc_payment_systems,id'
+        'payment_id' => 'integer|exists:oc_payment_systems,id',
+        'pay' => 'numeric|min:0'
     ];
 
     /**
@@ -261,8 +262,6 @@ class Payment extends Model
         if (!$this->checkPaymentClass()) {
             return;
         }
-        
-        $this->options = $this->getSavedParams();
     }
 
     /**
@@ -294,18 +293,15 @@ class Payment extends Model
      */
     public function changeStatusPayment($newStatus)
     {
-        try {
-            $this->status = $newStatus;
-            $this->items->each(function($item) {
+        $this->status = $newStatus;
+        $this->items->each(function($item) {
+            try {
                 $item->changeStatusPayment($this);
-            });
-        } 
-        catch(PayException $ex) {
-            $this->status = self::PAYMENT_ERROR;
-            $this->save();
-
-            throw $ex;
-        }
+            }
+            catch (\Exception $ex) {
+                throw new PayException(sprintf('Предмет [%s] %s', $item->code, $ex->getMessage()));
+            }
+        });
     }
 
     /**
@@ -396,7 +392,15 @@ class Payment extends Model
      */
     public function scopeOpened($query)
     {
-        $query->where('status', self::PAYMENT_NEW)->orWhere('status', self::PAYMENT_WAIT);
+        $query->where('status', self::PAYMENT_NEW);
+    }
+    
+    /**
+     * @param $query QueryBuilder
+     */
+    public function scopeActive($query)
+    {
+        $query->Where('status', self::PAYMENT_WAIT);
     }
 
     /**

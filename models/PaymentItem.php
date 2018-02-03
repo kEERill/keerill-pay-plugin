@@ -31,7 +31,7 @@ class PaymentItem extends Model
     public $rules = [
         'class_name' => 'required',
         'quantity' => 'required|integer|min:1',
-        'price' => 'required|min:0'
+        'price' => 'required|numeric|min:0'
     ];
 
     /**
@@ -92,8 +92,6 @@ class PaymentItem extends Model
      */
     public function beforeSave()
     {
-        $this->options = $this->getSavedParams();
-
         if (!array_get($this->attributes, 'description')) {
             $this->description = $this->getMessageItem();
         }
