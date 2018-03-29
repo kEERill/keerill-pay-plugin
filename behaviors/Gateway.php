@@ -79,12 +79,8 @@ Class Gateway extends PaymentBehavior
             throw new ApplicationException('Hash is required');
         }
 
-        if (!$payment = PaymentModel::opened()->where('hash', $hash)->where('pay_method', $this->model->id)->first()) {
+        if (!$payment = PaymentModel::active()->where('hash', $hash)->where('pay_method', $this->model->id)->first()) {
             throw new ApplicationException('Payment is not found');
-        }
-
-        if ($payment->hasOpen()) {
-            $payment->changeStatusPayment(PaymentModel::PAYMENT_WAIT);
         }
 
         return $payment;

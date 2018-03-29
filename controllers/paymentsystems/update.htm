@@ -8,7 +8,7 @@
 <?php if (!$this->fatalError): ?>
 
     <?= Form::open(['class' => 'layout']) ?>
-        <?php if (!$formModel->checkGatewayClass()): ?>
+        <?php if ($formModel->class_name && !$formModel->checkInvalidClassName()): ?>
             <?= $this->makePartial('preview_class_not_found'); ?>
         <?php endif; ?>
         <div class="scoreboard">

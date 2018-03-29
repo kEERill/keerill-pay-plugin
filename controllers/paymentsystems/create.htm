@@ -8,8 +8,7 @@
 <?php if (!$this->fatalError): ?>
 
     <?= Form::open(['class' => 'layout']) ?>
-        <input type="hidden" name="gateway_alias" value="<?= $this->gatewayAlias ?>" />
-
+        <input type="hidden" name="paymentHandlerAlias" value="<?= $this->paymentHandlerAlias ?>" />
         <div class="scoreboard">
             <div data-control="toolbar">
                 <div class="scoreboard-item title-value">

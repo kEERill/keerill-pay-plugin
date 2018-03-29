@@ -81,11 +81,9 @@ class Payments extends Controller
     {
         $model = $widget->model;
         
-        if (!$model->checkPaymentClass()) {
-            return;
+        if ($paymentHandler = $widget->model->getPaymentHandler()) {
+            $paymentHandler->getFormFieldsByPayment($this, $widget);
         }
-        
-        $model->extendFields($widget);
     }
 
     public function onRelationButtonDelete()
@@ -373,7 +371,7 @@ class Payments extends Controller
         }
         
         $this->widgetItem->bindEvent('form.extendFields', function ($fields) {
-            $this->widgetItem->model->extendFields($this->widgetItem);
+            $this->widgetItem->model->formExtendFields($this->widgetItem, $fields);
         });
 
         $this->widgetItem->bindToController($this);
@@ -415,7 +413,7 @@ class Payments extends Controller
             }
         }
 
-        $config->model->applyPaymentItemClass($class);
+        $config->model->applyCustomClass($class);
 
         $widget = $this->makeWidget('Backend\Widgets\Form', $config);
 
@@ -563,6 +561,10 @@ class Payments extends Controller
     {
         if($record->status == Payment::PAYMENT_CANCEL || $record->status == Payment::PAYMENT_ERROR) {
             return 'negative';
+        }
+
+        if ($record->hasSuccess()) {
+            return 'success';
         }
         
         if ($record->hasOpen()) {

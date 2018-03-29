@@ -29,24 +29,19 @@ Class Payment
          * Ошибка PH-01: Платежная система с таким кодом не найдена или же она отключена
          */
         if (!$paymentSystem = PaymentSystem::where('code', $code)->hasEnable()->first()) {
-            throw new PayException('При выполнении операции произошла ошибка с кодом PH-01', ['code' => $code] + post(), true);
+            throw new PayException('При выполнении операции произошла ошибка с кодом PH-01');
         }
 
         /**
          * Создание платежа с предметами
          */
         if ($payment = $this->createPaymentWithItems($data, $items)) {   
-            try {
-                /**
-                 * Присваивание способа оплаты в платежу
-                 * 
-                 * Ошибка PH-02: Не валидные аргументы платежа или уже выбран способ оплаты
-                 */
-                $this->setPaymentMethod($payment, $paymentSystem);
-            }
-            catch(\Exception $ex) {
-                throw new PayException($ex->getMessage(), post());
-            }
+            /**
+             * Присваивание способа оплаты в платежу
+             * 
+             * Ошибка PH-02: Не валидные аргументы платежа или уже выбран способ оплаты
+             */
+             $this->setPaymentMethod($payment, $paymentSystem); 
         }
 
         return $payment;
@@ -65,7 +60,7 @@ Class Payment
          * Ошибка PH-03: Переданные данные платежа не являются массивами [method: createPaymentWithItems]
          */
         if (!is_array($data) || !is_array($items)) {
-            throw new PayException('При выполнении операции произошла ошибка с кодом PH-03', post(), true);
+            throw new PayException('При выполнении операции произошла ошибка с кодом PH-03');
         }
 
         $payment = new PaymentModel;
@@ -102,17 +97,19 @@ Class Payment
         foreach ($filteredItems as $item => $params) {
             if (!$itemClass = PaymentManager::findPaymentItemByAlias(array_get($params, 'nameItem', false))) {
                 if ($throwException) {
-                    throw new PayException(sprintf(
-                        'Предмет [%s] не найден',
-                        array_get($params, 'nameItem', false)),
-                        $params);
+                    throw new PayException(
+                        sprintf(
+                            'Предмет [%s] не найден',
+                            array_get($params, 'nameItem', false)
+                        )
+                    );
                 }
                 
                 continue;
             }
 
             $newItem = new PaymentItem;
-            $newItem->applyPaymentItemClass($itemClass->class);
+            $newItem->applyCustomClass($itemClass->class);
             $newItem->fill($params);
 
             $payment->items()->add($newItem);
@@ -139,10 +136,12 @@ Class Payment
         foreach ($items as $item => $params) {
             if (!$itemClass = PaymentManager::findPaymentItemByAlias(array_get($params, 'nameItem', false))) {
                 if ($throwException) {
-                    throw new PayException(sprintf(
-                        'Предмет [%s] не найден',
-                        array_get($params, 'nameItem', false)),
-                        $params);
+                    throw new PayException(
+                        sprintf(
+                            'Предмет [%s] не найден',
+                            array_get($params, 'nameItem', false)
+                        )
+                    );
                 }
                 continue;
             }
@@ -169,20 +168,35 @@ Class Payment
             throw new PayException('При выполнении операции произошла ошибка с кодом PH-04');
         }
 
-        $payment->payment = $paymentSystem;
-        $payment->cancelled_at = null;
+        try {
+            $payment->payment = $paymentSystem;
+            $payment->cancelled_at = null;
 
-        if ($className = $paymentSystem->getPaymentClass()) {
-            $payment->applyPaymentClass($className);
-        }
-        
-        if ($paymentSystem->hasUseTimeout()) {
-            $this->addTimeCancelled($payment, $paymentSystem->getTimeout());
-        }
+            if ($paymentHandler = $paymentSystem->getPaymentHandler()) {
+                $paymentHandler->addNewPaymentToPaymentSystem($payment);
+            }
+            
+            if ($paymentSystem->hasUseTimeout()) {
+                $this->addTimeCancelled($payment, $paymentSystem->getTimeout());
+            }
+    
+            $payment->save();
+            
+            $paymentSystem->fireEvent('keerill.pay.changePaymentSystem', [$payment]);
 
-        $payment->save();
-        
-        $paymentSystem->fireEvent('keerill.pay.changePaymentSystem', [$payment]);
+            Event::fire('keerill.pay.newPaymentToSystem', [$payment, $paymentSystem]);
+        }
+        catch (PayException $ex) {
+            $this->errorPayment($payment, sprintf(
+                'Произошла ошибка при создании платежа: %s', 
+                $ex->getMessage()
+            ));
+            throw new ApplicationException('Создание платежа завершилось ошибкой. Пожалуйста, обратитесь к администратору');
+        }
+        catch (\Exception $ex) {
+            $this->errorPaymentByException($payment, 'Произошла ошибка при создании платежа', $ex);
+            throw new ApplicationException('Создание платежа завершилось ошибкой. Пожалуйста, обратитесь к администратору');
+        }
     }
 
     /**
@@ -221,36 +235,35 @@ Class Payment
      * @param array Входные данные
      * @return void
      */
-    public function paymentSetSuccessStatus(PaymentModel $payment, array $requestData)
+    public function paymentSetSuccessStatus(PaymentModel $payment, array $requestData = [])
     {
+        if ($payment->pay <= 0) {
+            throw new PayException('Некорректная сумма, сумма должна быть больше 0');
+        }
+        
         try {
             if (!$payment->hasActive()) {
-                throw new ApplicationException('Платеж уже подтвержден и невозможно сделать это ещё раз');
-            }
-
-            if ($payment->pay <= 0) {
-                throw new ApplicationException('Некорректная сумма, сумма должна быть больше 0');
+                throw new PayException('Платеж уже подтвержден и невозможно сделать это ещё раз');
             }
 
             Event::fire('keerill.pay.beforeSuccessStatus', [$this]);
 
             $payment->paid_at = $payment->freshTimestamp();
+            $payment->cancelled_at = null;
             $payment->changeStatusPayment(PaymentModel::PAYMENT_SUCCESS);
             $payment->save();
 
             Event::fire('keerill.pay.afterSuccessStatus', [$payment]);
         } 
-        catch(PayException $ex) {
-            PaymentLog::add($payment, [
-                'message' => sprintf('Произошла ошибка при подтверждении платежа: %s', $ex->getMessage()),
-                'code' => 'error',
-                'request_data' => $requestData
-            ], BackendAuth::getUser());
-
-            $payment->changeStatusPayment(PaymentModel::PAYMENT_ERROR);
-            $payment->paid_at = null;
-            $payment->save();
-
+        catch (PayException $ex) {
+            $this->errorPayment($payment, sprintf(
+                'Произошла ошибка при подтверждении платежа: %s', 
+                $ex->getMessage()
+            ));
+            throw $ex;   
+        }
+        catch (\Exception $ex) {
+            $this->errorPaymentByException($payment, 'Произошла ошибка при подтверждении платежа', $ex);
             throw $ex;
         }
 
@@ -273,28 +286,25 @@ Class Payment
         $message = ($message) ?: 'Причина не указана';
 
         try {
-            if (!$payment->hasActive()) {
-                throw new ApplicationException('Платеж уже подтвержден и невозможно отклонить его');
-            }
-
             Event::fire('keerill.pay.beforeCancelledStatus', [$payment]);
 
             $payment->message = $message;
+            $payment->cancelled_at = null;
             $payment->changeStatusPayment(PaymentModel::PAYMENT_CANCEL);
             $payment->save();
 
             Event::fire('keerill.pay.afterCancelledStatus', [$payment]);
 
         } 
-        catch(PayException $ex) {
-            PaymentLog::add($payment, [
-                'message' => sprintf('Произошла ошибка при отклонении платежа: %s', $ex->getMessage()),
-                'code' => 'error'
-            ], BackendAuth::getUser());
-
-            $payment->changeStatusPayment(PaymentModel::PAYMENT_ERROR);
-            $payment->save();
-
+        catch (PayException $ex) {
+            $this->errorPayment($payment, sprintf(
+                'Произошла ошибка при отклонении платежа: %s', 
+                $ex->getMessage()
+            ));
+            throw $ex;
+        }
+        catch (\Exception $ex) {
+            $this->errorPaymentByException($payment, 'Произошла ошибка при отклонении платежа', $ex);
             throw $ex;
         }
 
@@ -336,5 +346,53 @@ Class Payment
             'message' => 'Было произведено пересчитывание суммы платежа',
             'code' => 'update_pay'
         ], BackendAuth::getUser());
+    }
+
+    /**
+     * Поставить статус ошибки платежу
+     * 
+     * @param PaymentModel Платеж
+     * @param string Сообщение ошибки
+     * @return void
+     */
+    protected function errorPayment(PaymentModel $payment, $message = "")
+    {
+        if ($payment->hasError()) {
+            return;
+        }
+
+        $message = $message ?: 'Ошибка содержания PH-05';
+
+        Event::fire('keerill.pay.paymentError', [$payment, $message]);
+
+        PaymentLog::add($payment, [
+            'message' => $message,
+            'code' => 'error'
+        ], BackendAuth::getUser());
+
+        $payment->cancelled_at = null;
+        $payment->changeStatusPayment(PaymentModel::PAYMENT_ERROR);
+        $payment->save();
+    }
+
+    /**
+     * Установка статуса ошибки по исключению
+     * 
+     * @param PaymentModel Модель платежа
+     * @param string Сообщение
+     * @return void
+     */
+    public function errorPaymentByException(PaymentModel $payment, $message, $ex) 
+    {
+        $this->errorPayment(
+            $payment,
+            sprintf(
+                '%s: %s Файл: %s Строка: %s',
+                $message,
+                $ex->getMessage(),
+                $ex->getFile(),
+                $ex->getLine()
+            )
+        );
     }
 }

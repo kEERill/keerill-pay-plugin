@@ -3,8 +3,10 @@
 use Str;
 use Event;
 use Model;
+use PaymentManager;
 use ApplicationException;
 use Doctrine\DBAL\Query\QueryBuilder;
+use KEERill\Pay\Classes\PaymentHandler;
 use KEERill\Pay\Exceptions\PayException;
 
 /**
@@ -12,6 +14,7 @@ use KEERill\Pay\Exceptions\PayException;
  */
 class Payment extends Model
 {
+    use \KEERill\Pay\Traits\ClassExtendable;
     use \October\Rain\Database\Traits\Validation;
 
     /**
@@ -37,7 +40,8 @@ class Payment extends Model
      * @var string Правила валидации
      */
     public $rules = [
-        'payment_id' => 'integer|exists:oc_payment_systems,id'
+        'payment_id' => 'integer|exists:oc_payment_systems,id',
+        'pay' => 'numeric|min:0'
     ];
 
     /**
@@ -48,6 +52,11 @@ class Payment extends Model
         'status' => 'Статус платежа',
         'pay' => 'Сумма пополнения'
     ];
+
+    /**
+     * @var PaymentHandler Платежный шлюз
+     */
+    protected $paymentHandler = false;
 
     /**
      * @var array Guarded  fields
@@ -145,6 +154,8 @@ class Payment extends Model
     public function getPay($force = false)
     {
         if ($force) {
+            $this->pay = 0;
+            
             $this->items->each(function ($item) {
                 $this->pay += $item->total_price;
             });
@@ -166,6 +177,25 @@ class Payment extends Model
         }
 
         return $this->payment->partial_name;
+    }
+
+    /**
+     * Возвращает PaymentHandler платежной системы
+     * @return PaymentHandler
+     */
+    public function getPaymentHandler()
+    {
+        if ($this->paymentHandler) { 
+            return $this->paymentHandler;
+        }
+        
+        if ($this->payment) {
+            if ($this->paymentHandler = $this->payment->getPaymentHandler()) {
+                return $this->paymentHandler;
+            }
+        }
+        
+        return null;
     }
 
     /**
@@ -218,16 +248,6 @@ class Payment extends Model
         return $this->status == self::PAYMENT_CANCEL;
     }
 
-    /**
-     * Добавление новых заполняемых полей
-     * 
-     * @param array Поля, которые нужно добавить
-     */
-    public function addFillableFields($fields = [])
-    {
-        return $this->fillable = array_merge($this->fillable, $fields);
-    }
-
     /*
      *
      * Events
@@ -241,39 +261,12 @@ class Payment extends Model
     public function afterCreate()
     {
         if (!$this->class_name && $this->payment) {
-            if (!$className = $this->payment->getPaymentClass()) {
+            if (!$this->paymentHandler = $this->payment->getPaymentHandler()) {
                 return;
             }
-            $this->applyPaymentClass($className);
+            $this->applyCustomClassByPaymentHandler($this->paymentHandler);
             $this->save();
         }
-    }
-
-    /**
-     * Вызывается до сохранения модели
-     * Здесь отфильтровываются поля платежного шлюза от полей модели
-     * Иначе будет ошибка о не существовании полей
-     * 
-     * @return void
-     */
-    public function beforeSave()
-    {
-        if (!$this->checkPaymentClass()) {
-            return;
-        }
-        
-        $this->options = $this->getSavedParams();
-    }
-
-    /**
-     * Вызывается после заполнении модели данными, здесь мы наследуем класс платежной системы
-     * Также в атрибуты полей добавляются значения параметров платежной системы
-     * 
-     * @return void
-     */
-    public function afterFetch()
-    {
-        $this->applyPaymentClass();
     }
 
     /**
@@ -294,63 +287,30 @@ class Payment extends Model
      */
     public function changeStatusPayment($newStatus)
     {
-        try {
-            $this->status = $newStatus;
-            $this->items->each(function($item) {
+        $this->status = $newStatus;
+        $this->items->each(function($item) {
+            try {
                 $item->changeStatusPayment($this);
-            });
-        } 
-        catch(PayException $ex) {
-            $this->status = self::PAYMENT_ERROR;
-            $this->save();
-
-            throw $ex;
-        }
+            }
+            catch (\Exception $ex) {
+                throw new PayException(sprintf('Предмет [%s] %s', $item->code, $ex->getMessage()));
+            }
+        });
     }
 
     /**
-     * Проверка на существования класса платежного шлюза
+     * Присваиваем класс модели в зависимости от платежного шлюза
      * 
-     * @return mixed
-     */
-    public function checkPaymentClass($class = false)
-    {
-        if (!$class && !$this->class_name) {
-            return false;
-        }
-
-        if (!$class) {
-            $class = $this->class_name;
-        }
-
-        if (!class_exists($class)) {
-            return false;
-        }
-
-        return Str::normalizeClassName($class);
-    }
-
-    /**
-     * Наследование класса платежного шлюза
-     *
-     * @param string Класс
+     * @param PaymentHandler Платежный шлюз
      * @return void
      */
-    public function applyPaymentClass($class = false)
+    public function applyCustomClassByPaymentHandler(PaymentHandler $paymentHandler)
     {
-        if (!$class = $this->checkPaymentClass($class)) {
-            return false;
+        if (method_exists($this, 'applyCustomClass') && $paymentHandler->getPaymentClass()) {
+            $this->applyCustomClass($paymentHandler->getPaymentClass());
         }
-
-        if (!$this->isClassExtendedWith($class)) {
-            $this->extendClassWith($class);
-        }
-
-        $this->class_name = $class;
-        $this->attributes = array_merge($this->getFilteredParams(), $this->attributes);
-
-        return true;
     }
+        
 
     /**
      * Internal helper, and set generate a unique hash for this invoice.
@@ -396,7 +356,23 @@ class Payment extends Model
      */
     public function scopeOpened($query)
     {
-        $query->where('status', self::PAYMENT_NEW)->orWhere('status', self::PAYMENT_WAIT);
+        $query->where('status', self::PAYMENT_NEW);
+    }
+
+    public function scopeActiveOrOpen($query)
+    {
+        $query->where(function ($query) {
+            $query->where('status', self::PAYMENT_NEW)
+                  ->orWhere('status', self::PAYMENT_WAIT);
+        });
+    }
+    
+    /**
+     * @param $query QueryBuilder
+     */
+    public function scopeActive($query)
+    {
+        $query->Where('status', self::PAYMENT_WAIT);
     }
 
     /**

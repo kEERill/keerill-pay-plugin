@@ -6,7 +6,7 @@
 <?php Block::endPut() ?>
 
 <?php if (!$this->fatalError): ?>
-    <?php if (!$formModel->checkGatewayClass()): ?>
+    <?php if ($formModel->class_name && !$formModel->checkInvalidClassName()): ?>
         <?= $this->makePartial('preview_class_not_found'); ?>
     <?php endif; ?>
     

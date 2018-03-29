@@ -14,12 +14,12 @@
         <div class="list-preview">
             <div class="control-simplelist is-selectable is-scrollable size-large" data-control="simplelist">
                 <ul>
-                    <?php foreach ($gateways as $gateway): ?>
+                    <?php foreach ($paymentHandlers as $paymentHandler): ?>
 
                         <li>
-                            <a href="<?= Backend::URL('keerill/pay/paymentsystems/create/' . $gateway->alias) ?>">
-                                <h5 class="heading"><?= $gateway->name ?></h5>
-                                <p class="description"><?= $gateway->description ?></p>
+                            <a href="<?= Backend::URL('keerill/pay/paymentsystems/create/' . $paymentHandler->getAlias()) ?>">
+                                <h5 class="heading"><?= array_get($paymentHandler->getPaymentHandlerDetails(), 'name') ?></h5>
+                                <p class="description"><?= array_get($paymentHandler->getPaymentHandlerDetails(), 'description') ?></p>
                             </a>
                         </li>
 
