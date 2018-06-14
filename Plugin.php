@@ -4,6 +4,8 @@ use App;
 use Log;
 use Event;
 use Backend;
+use Carbon\Carbon;
+use Payment as PaymentHelper;
 use System\Classes\PluginBase;
 use KEERill\Users\Models\User;
 use KEERill\Pay\Models\Payment;
@@ -28,7 +30,7 @@ class Plugin extends PluginBase
     {
         return [
             'name'        => 'Платежные системы',
-            'description' => 'Плагин для управления платежами и балансом пользователя',
+            'description' => 'Плагин для управления платежами',
             'author'      => 'KEERill',
             'icon'        => 'icon-leaf'
         ];
@@ -228,16 +230,18 @@ class Plugin extends PluginBase
             ]
         ];
     }
+    
+    public function registerSchedule($schedule)
+    {
+        $schedule->call(function () {
+            $now = new Carbon;
+            $now->timezone(config('app.timezone', 'UTC'));
 
-    /** 
-     * Регистрация новых платежных шлюзов
-     * 
-     * @return array
-     */
-    // public function registerPaymentGateways()
-    // {
-    //     return [
-    //         'KEERill\Pay\Payments\Gateways\Bitcoin' => 'bitcoin'
-    //     ];
-    // }
+            $payments = Payment::where('cancelled_at', '<', $now)->whereNotNull('cancelled_at')->get();
+           
+            foreach ($payments as $payment) {
+                PaymentHelper::paymentSetCancelledStatus($payment, 'Превышено время ожидания');
+            }
+        })->cron('*/5 * * * *');
+    }
 }

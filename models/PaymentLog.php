@@ -68,9 +68,8 @@ class PaymentLog extends Model
             'message' => 'Параметр `message` не был передан',
             'code' => 'error'
         ], $options);
-        
+
         $record->payment = $payment;
-        $record->user = $user;
         $record->ip_address = Request::getClientIp();
         
         $record->fill($data);

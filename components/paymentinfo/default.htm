@@ -1,5 +1,5 @@
-{% if __SELF__.error %}
-    {% partial __SELF__ ~ '::error' %}
-{% else %}
+{% if __SELF__.getPayment() %}
     {% partial __SELF__ ~ '::payment' %}
+{% else %}
+    {% partial __SELF__ ~ '::not_found' %}
 {% endif %}

@@ -24,9 +24,10 @@ class PaymentSystems extends Controller
 
     public $requiredPermissions = ['keerill.pay.payment_system'];
 
-    public $gatewayAlias;
-
-    public $gatewayClass;
+    /**
+     * @var string Уникальный код платежного шлюза
+     */
+    public $paymentHandlerAlias;
     
     public function __construct()
     {
@@ -43,29 +44,28 @@ class PaymentSystems extends Controller
     protected function index_onLoadAddPopup()
     {
         try {
-            $gateways = PaymentManager::getGateways();
-            $gateways->sortBy('name');
+            $paymentHandlers = PaymentManager::getPaymentHandlers();
+            $paymentHandlers->sortBy('name');
         }
         catch (Exception $ex) {
             $this->handleError($ex);
         }
 
-        return $this->makePartial('list_add_gateway_form', ['gateways' => $gateways]);
+        return $this->makePartial('list_add_gateway_form', ['paymentHandlers' => $paymentHandlers]);
     }
 
     /**
      * Создание новой платежной системы
-     * 
      * @return mixed
      */
-    public function create($gatewayAlias, $context = null)
+    public function create($paymentHandlerAlias, $context = null)
     {
         try {
             if (!$this->user->hasAccess('keerill.pay.payment_system.create')) {
                 throw new ApplicationException('Недостаточно прав для выполнения данной операции');
             }
             
-            $this->gatewayAlias = $gatewayAlias;
+            $this->paymentHandlerAlias = $paymentHandlerAlias;
             return $this->asExtension('FormController')->create();
         }
         catch (\Exception $ex) {
@@ -120,7 +120,7 @@ class PaymentSystems extends Controller
     public function formExtendModel($model)
     {
         if (!$model->exists) {
-            $model->applyGatewayClass($this->getGatewayClass());
+            $model->applyCustomClassByPaymentHandler($this->getPaymentHandler());
         }
 
         return $model;
@@ -134,12 +134,10 @@ class PaymentSystems extends Controller
     public function formExtendFields($widget)
     {
         $model = $widget->model;
-        
-        if (!$model->checkGatewayClass()) {
-            return;
+
+        if ($paymentHandler = $widget->model->getPaymentHandler()) {
+            $paymentHandler->getFormFieldsByPaymentSystem($this, $widget);
         }
-        
-        $model->extendFields($widget);
     }
  
     /**
@@ -147,19 +145,18 @@ class PaymentSystems extends Controller
      * 
      * @return string Класс
      */
-    protected function getGatewayClass()
+    protected function getPaymentHandler()
     {
-        $alias = post('gateway_alias', $this->gatewayAlias);
+        $alias = post('paymentHandlerAlias', $this->paymentHandlerAlias);
 
-        if ($this->gatewayClass !== null) {
-            return $this->gatewayClass;
+        if (!$paymentHandler = PaymentManager::findPaymentHandlerByAlias($alias)) {
+            throw new ApplicationException(sprintf(
+                'К сожалению платежный шлюз [%s] не зарегистрирован в системе.',
+                $alias
+            ));
         }
 
-        if (!$gateway = PaymentManager::findGatewayByAlias($alias)) {
-            throw new ApplicationException('К сожалению данный платежный шлюз не зарегистрирован в системе. '. $alias);
-        }
-
-        return $this->gatewayClass = $gateway->class;
+        return $paymentHandler;
     }
 
     /**

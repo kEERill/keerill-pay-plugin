@@ -2,6 +2,8 @@
 
 use Str;
 use Model;
+use PaymentManager;
+use KEERill\Pay\Classes\PaymentHandler;
 use KEERill\Pay\Exceptions\PayException;
 
 /**
@@ -9,6 +11,7 @@ use KEERill\Pay\Exceptions\PayException;
  */
 class PaymentSystem extends Model
 {
+    use \KEERill\Pay\Traits\ClassExtendable;
     use \October\Rain\Database\Traits\Validation;
     
     /**
@@ -47,6 +50,11 @@ class PaymentSystem extends Model
      * @var array
      */
     protected $partialToRender = [];
+
+    /**
+     * @var PaymentHandler Платежный шлюз
+     */
+    protected $paymentHandler = false;
 
     /**
      * Хэшированый код платежной системы
@@ -95,6 +103,26 @@ class PaymentSystem extends Model
     }
 
     /**
+     * Возвращает PaymentHandler платежной системы
+     * @return PaymentHandler
+     */
+    public function getPaymentHandler()
+    {
+        if ($this->paymentHandler) {
+            return $this->paymentHandler;
+        }
+
+        if ($this->methodExists('getAlias')) {
+            if ($this->paymentHandler = PaymentManager::findPaymentHandlerByAlias($this->getAlias())) {
+                $this->paymentHandler->setPaymentSystemModelByModel($this);
+                return $this->paymentHandler;
+            }
+        }
+        
+        return null;
+    }
+
+    /**
      * Получение состояния системы
      * 
      * @return bool
@@ -114,76 +142,19 @@ class PaymentSystem extends Model
         return $this->pay_timeout > 0;
     }
 
-    /*
-     *
-     * Events
-     * 
-     */
-
     /**
-     * Вызывается до сохранения модели
-     * Здесь отфильтровываются поля платежного шлюза от полей модели
-     * Иначе будет ошибка о не существовании полей
+     * Присваиваем класс модели в зависимости от платежного шлюза
      * 
+     * @param PaymentHandler Платежный шлюз
      * @return void
      */
-    public function beforeSave()
+    public function applyCustomClassByPaymentHandler(PaymentHandler $paymentHandler)
     {
-        $this->options = $this->getSavedParams();
-    }
-
-    /**
-     * Вызывается после заполнении модели данными, здесь мы наследуем класс платежной системы
-     * Также в атрибуты полей добавляются значения параметров платежной системы
-     * 
-     * @return void
-     */
-    public function afterFetch()
-    {
-        $this->applyGatewayClass();
-    }
-
-    /**
-     * Проверка на существования класса платежного шлюза
-     * 
-     * @return mixed
-     */
-    public function checkGatewayClass($class = false)
-    {
-        if (!$class && !$this->class_name) {
-            return false;
+        if (method_exists($this, 'applyCustomClass') && $paymentHandler->getPaymentSystemClass()) {
+            $this->applyCustomClass($paymentHandler->getPaymentSystemClass());
         }
 
-        if (!$class) {
-            $class = $this->class_name;
-        }
-
-        if (!class_exists($class)) {
-            return false;
-        }
-
-        return Str::normalizeClassName($class);
-    }
-
-    /**
-     * Наследование класса платежного шлюза
-     *
-     * @param string Класс
-     * @return void
-     */
-    public function applyGatewayClass($class = false)
-    {
-        if (!$class = $this->checkGatewayClass($class)) {
-            return false;
-        }
-
-        if (!$this->isClassExtendedWith($class)) {
-            $this->extendClassWith($class);
-        }
-
-        $this->class_name = $class;
-        $this->gateway_name = array_get($class::gatewayDetails(), 'name', 'Unknown');
-        $this->attributes = array_merge($this->getFilteredParams(), $this->attributes);
+        $this->gateway_name = array_get($paymentHandler->getPaymentHandlerDetails(), 'name');
     }
 
     /*

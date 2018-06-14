@@ -1,5 +1,6 @@
 <?php namespace KEERill\Pay\Classes;
 
+use Str;
 use Event;
 use Response;
 use KEERill\Pay\Models\Payment;
@@ -14,9 +15,9 @@ Class PaymentManager
     use \October\Rain\Support\Traits\Singleton;
 
     /**
-     * @var array Cache Gateways
+     * @var array Кэш платежных шлюзов зарегистрированных в системе
      */
-    private $gateways;
+    private $cachePaymentHandlers;
 
     /**
      * @var Collection Cache colletion
@@ -47,43 +48,21 @@ Class PaymentManager
     }
 
     /**
-     * Получение платежа по данным
-     * 
-     * @param array $data Данные платежа
-     * @return \KEERill\Pay\Models\Payment
-     */
-    public function getPaymentByCredentials(array $data)
-    {
-        $paymentQuery = \KEERill\Pay\Models\Payment::newQuery();
-
-        if ($data) {
-            foreach ($data as $attr => $value) {
-                $query->where($attr, $value);
-            }
-        }
-
-        return $paymentQuery->first();
-    }
-
-    /**
      * Регистрация платежных шлюзов
      *
      * @param string $owner ID плагина Author.Plugin.
      * @param array $classes Классы платежных шлюзов.
      */
-    public function registerGateways($owner, array $classes)
+    public function registerPaymentHandlers($owner, array $classes)
     {
-        if (!$this->gateways)
-            $this->gateways = [];
+        if (!$this->cachePaymentHandlers)
+            $this->cachePaymentHandlers = new Collection([]);
 
-        foreach ($classes as $class => $alias) {
-            $gateway = (object)[
-                'owner' => $owner,
-                'class' => $class,
-                'alias' => $alias,
-            ];
+        foreach ($classes as $class) {
+            $className = Str::normalizeClassName($class);
+            $paymentHandler = new $className($this);
 
-            $this->gateways[$alias] = $gateway;
+            $this->cachePaymentHandlers->put($paymentHandler->getAlias(), $paymentHandler);
         }
     }
 
@@ -111,25 +90,21 @@ Class PaymentManager
 
     /**
      * Получение и регистрация платежных шлюзов, через плагины
-     *
      * @return void
      */
-    protected function loadGateways()
+    protected function loadPaymentHandlers()
     {
-        /*
-        * Load plugin items
-        */
         $plugins = $this->pluginManager->getPlugins();
 
         foreach ($plugins as $id => $plugin) {
-            if (!method_exists($plugin, 'registerPaymentGateways'))
+            if (!method_exists($plugin, 'registerPaymentHandlers'))
                 continue;
 
-            $gateways = $plugin->registerPaymentGateways();
-            if (!is_array($gateways))
+            $paymentHandlers = $plugin->registerPaymentHandlers();
+            if (!is_array($paymentHandlers))
                 continue;
 
-            $this->registerGateways($id, $gateways);
+            $this->registerPaymentHandlers($id, $paymentHandlers);
         }
     }
 
@@ -163,46 +138,13 @@ Class PaymentManager
      * @param boolean $asObject Если true то возвращаяет, объект платежных щлюзов
      * @return mixed
      */
-    public function getGateways($getCollection = true)
+    public function getPaymentHandlers()
     {
-        if ($this->gateways === null) {
-            $this->loadGateways();
+        if ($this->cachePaymentHandlers === null) {
+            $this->loadPaymentHandlers();
         }
 
-        if (!$getCollection) {
-            return $this->gateways;
-        }
-
-        if ($this->gatewaysCollection) {
-            return $this->gatewaysCollection;
-        }
-
-        /*
-         * Enrich the collection with gateway objects
-         */
-        $collection = [];
-
-        if (!is_array($this->gateways)) {
-            return new Collection($collection);
-        }
-
-        foreach ($this->gateways as $gateway) {
-            if (!class_exists($gateway->class))
-                continue;
-
-            $class =  $gateway->class;
-            $gatewayDetails = $class::gatewayDetails();
-
-            $collection[$gateway->alias] = (object)[
-                'owner'       => $gateway->owner,
-                'class'       => $gateway->class,
-                'alias'       => $gateway->alias,
-                'name'        => array_get($gatewayDetails, 'name', 'Undefined'),
-                'description' => array_get($gatewayDetails, 'description', 'Undefined'),
-            ];
-        }
-
-        return $this->gatewaysCollection = new Collection($collection);
+        return $this->cachePaymentHandlers;
     }
 
     /**
@@ -256,19 +198,13 @@ Class PaymentManager
     /**
      * Returns a gateway based on its unique alias.
      */
-    public function findGatewayByAlias($alias)
+    public function findPaymentHandlerByAlias($alias)
     {
-        if (!$alias) {
-            return false;
-        }
-        
-        $gateways = $this->getGateways(false);
-
-        if (!isset($gateways[$alias])) {
+        if (!$paymentHandlers = $this->getPaymentHandlers()) {
             return false;
         }
 
-        return $gateways[$alias];
+        return $paymentHandlers->get($alias);
     }
 
     /**
@@ -296,18 +232,18 @@ Class PaymentManager
      */
     public static function runAccessPoint($code = null, $accessPoint = null)
     {
-        if (!$code || !$accessPoint) {
-            return Response::make('Access Forbidden', '403');
-        }
-        
-        if (!$gateway = \KEERill\Pay\Models\PaymentSystem::where('code', $code)->first()) {
+        if (!$paymentSystemModel = \KEERill\Pay\Models\PaymentSystem::where('code', $code)->whereNotNull('code')->first()) {
             return Response::make('Access Forbidden', '403');
         }
 
-        $points = $gateway->registerAccessPoints();
+        if (!$paymentHandler = $paymentSystemModel->getPaymentHandler()) {
+            return Response::make('Access Forbidden', '403');
+        }
+
+        $points = $paymentHandler->registerAccessPoints();
 
         if (isset($points[$accessPoint])) {
-            return $gateway->{$points[$accessPoint]}();
+            return $paymentHandler->{$points[$accessPoint]}();
         }
 
         return Response::make('Access Forbidden', '403');

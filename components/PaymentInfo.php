@@ -1,5 +1,7 @@
 <?php namespace KEERill\Pay\Components;
 
+use Flash;
+use Request;
 use Redirect;
 use ApplicationException;
 use Payment as PaymentHelper;
@@ -11,11 +13,6 @@ use KEERill\Pay\Exceptions\PayException;
 class PaymentInfo extends ComponentBase
 {
     /**
-     * @var string Ошибка возникшая при работе
-     */
-    public $error;
-
-    /**
      * @var Payment Модель платежа
      */
     protected $payment = null;
@@ -23,7 +20,7 @@ class PaymentInfo extends ComponentBase
     /**
      * @var Collection Модели платежных шлюзов 
      */
-    protected $systems;
+    protected $systems = null;
 
     /**
      * {@inheritdoc}
@@ -42,11 +39,11 @@ class PaymentInfo extends ComponentBase
     public function defineProperties()
     {
         return [
-            'paramCode' => [
+            'paymentHash' => [
                 'title' => 'Хэш',
                 'description' => 'Параметр, в котором передаётся хэш платежа',
                 'type' => 'string',
-                'default' => 'hash'
+                'default' => '{{ :hash }}'
             ],
         ];
     }
@@ -58,53 +55,37 @@ class PaymentInfo extends ComponentBase
      */
     public function getPayment()
     {
-        return $this->payment;
+        if ($this->payment != null) {
+            return $this->payment;
+        }
+        
+        return $this->payment = $this->getPaymentByHash($this->property('paymentHash'));
     }
 
     /**
-     * Получениe колекции моделей платежных шлюзов
-     * 
+     * Возвращает список доступных платежных систем
      * @return Collection
      */
-    public function getSystems()
+    public function getPaymentSystems()
     {
-        return $this->systems;
+        if ($this->systems != null) {
+            return $this->systems;
+        }
+
+        return $this->systems = PaymentSystem::hasEnable()->get();
     }
 
     /**
-     * {@inheritdoc}
+     * Возвращает платежный шлюз системы
+     * @return PaymentHandler
      */
-    public function onRun()
+    public function getPaymentHandler()
     {
-        try {
-            $this->prepareVars();
-
-            if (!$this->payment->payment) {
-                $this->systems = PaymentSystem::hasEnable()->get();
-            }
-        } catch(ApplicationException $ex) {
-            $this->error = $ex->getMessage();
-        }
-    }
-
-    /**
-     * AJAX Handler!
-     * 
-     * Выбор платежного шлюза
-     */
-    public function onButtonChooseSystem()
-    {
-        $data = post();
-
-        if (!$system = $this->getPaymentSystemByCode(trim(array_get($data, 'systemCode')))) {
-            throw new ApplicationException('Payment system not found by code');
+        if (!$payment = $this->getPayment()) {
+            return false;
         }
 
-        $this->prepareVars();
-
-        PaymentHelper::setPaymentMethod($this->payment, $system);
-
-        return Redirect::refresh();
+        return $payment->getPaymentHandler();
     }
 
     /**
@@ -128,22 +109,60 @@ class PaymentInfo extends ComponentBase
     }
 
     /**
-     * Определение модели по хэшу
+     * AJAX Handler!
+     * 
+     * Запуск сторонних обработчиков от платежного шлюза
      */
-    protected function prepareVars()
+    public function onButtonPaymentHandler()
     {
-        /**
-         * Получение хэша платежа
-         */
-        if (!$hash = trim($this->param($this->property('paramCode')))) {
-            throw new ApplicationException('Hash is required');
+        try {
+            $data = post();
+
+            if (!$actionHandler = post('ActionHandler', false)) {
+                throw new ApplicationException('Параметр ActionHandler обязателен');
+            }
+    
+            if (!$paymentHandler = $this->getPaymentHandler()) {
+                throw new ApplicationException('Платежный шлюз отсутствует');
+            }
+    
+            $registerHandlers = $paymentHandler->registerAjaxHandlers();
+            
+            if (!$handler = array_get($registerHandlers, $actionHandler, false)) {
+                throw new ApplicationException(
+                    sprintf(
+                        'Обработчик %s не найден',
+                        $actionHandler
+                    )
+                );
+            }
+    
+            return $paymentHandler->{$handler}($this, $this->getPayment());
+        }
+        catch(\Exception $ex) {
+            Flash::error($ex->getMessage());
+            if (Request::ajax()) return;
+            else return Redirect::back();
+        }
+    }
+
+    /**
+     * AJAX Handler!
+     * 
+     * Выбор платежного шлюза
+     */
+    public function onButtonChooseSystem()
+    {
+        $data = post();
+
+        if (!$system = $this->getPaymentSystemByCode(trim(array_get($data, 'systemCode')))) {
+            throw new ApplicationException('Payment system not found by code');
         }
 
-        /**
-         * Поиск платежа по полученному хэшу
-         */
-        if (!$this->payment = $this->getPaymentByHash($hash)) {
-            throw new ApplicationException('Payment not found');
-        }
+        $this->prepareVars();
+
+        PaymentHelper::setPaymentMethod($this->payment, $system);
+
+        return Redirect::refresh();
     }
 }

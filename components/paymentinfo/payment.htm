@@ -17,7 +17,7 @@
     </tr>
     <tr>
         <td>Действителен до</td>
-        <td>{{ payment.cancelled_at|date('Y.m.d H:i') }}</td>
+        <td>{{ payment.cancelled_at ? payment.cancelled_at|date('Y.m.d H:i') : 'Бессрочно' }}</td>
     </tr>
 </table>
 

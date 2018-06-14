@@ -5,24 +5,14 @@ use System\Classes\ModelBehavior;
 
 Class PaymentBehavior extends ModelBehavior 
 {
-    use \System\Traits\ConfigMaker;
-
     /**
-     * @var array Новые поля для платежного шлюза
-     */
-    private $configFields;
-
-    /**
-     * @var \KEERill\Pay\Models\PaymentSystem
+     * @var mixed Модель
      */
     protected $model;
 
     public function __construct($model = null)
     {
         parent::__construct($model);
-
-        $this->configPath = $this->guessConfigPathFrom($this);
-        $this->configFields = $this->makeConfig($this->defineFromFields());
 
         if (!$model) {
             return;
@@ -33,6 +23,15 @@ Class PaymentBehavior extends ModelBehavior
     }
 
     /**
+     * Уникальный код платежного шлюза
+     * @return string
+     */
+    public function getAlias()
+    {
+        return 'default';
+    }
+
+    /**
      * Правила валидации
      *
      * @return array
@@ -40,25 +39,6 @@ Class PaymentBehavior extends ModelBehavior
     public function defineValidationRules()
     {
         return [];
-    }
-
-    /**
-     * Поля для платежного шлюза
-     *
-     * @return string
-     */
-    public function defineFromFields()
-    {
-        return 'fields.yaml';
-    }
-
-    /**
-     * Получение новых полей, предусмотренной платежной системой
-     * @return array Fields
-     */
-    public function getFieldConfig()
-    {
-        return $this->configFields;
     }
 
     /**
@@ -134,46 +114,22 @@ Class PaymentBehavior extends ModelBehavior
     }
 
     /**
-     * Инициализация параметров
-     */
-    public function initConfigData() {}
-
-    /**
      * Инициализация модели
      */
     public function boot()
     {
-        if (!$this->model->exists) {
-            $this->initConfigData($this->model);
-        }
-
         if (!$this->model->rules) {
             $this->model->rules = [];
         }
 
         $this->model->rules = array_merge($this->model->rules, $this->defineValidationRules());
-    }
 
-    /**
-     * Наследование формы виджета для параметров
-     * 
-     * @param Backend\Widgets\Form $widget виджет формы
-     * @return void
-     */
-    public function extendFields($widget) 
-    {
-        $config = $this->getFieldConfig();
-    
-        if (property_exists($config, 'fields') && count($config->fields) > 0) {
-            $widget->addFields($config->fields);
-        }
+        $this->model->bindEvent('model.beforeSave', function() {
+            $this->model->options = $this->getSavedParams();
+        });
 
-        if (property_exists($config, 'tabs') && count(array_get($config->tabs, 'fields')) > 0) {
-            $widget->addFields(array_get($config->tabs, 'fields'), 'primary');
-        }
-
-        if (property_exists($config, 'secondaryTabs') && count(array_get($config->secondaryTabs, 'fields')) > 0) {
-            $widget->addFields(array_get($config->secondaryTabs, 'fields'), 'secondary');
-        }
+        $this->model->bindEvent('model.afterSave', function() {
+            $this->model->attributes = array_merge($this->getFilteredParams(), $this->model->attributes);
+        });
     }
 }

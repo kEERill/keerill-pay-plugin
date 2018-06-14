@@ -8,6 +8,7 @@ use Model;
  */
 class PaymentItem extends Model
 {
+    use \KEERill\Pay\Traits\ClassExtendable;
     use \October\Rain\Database\Traits\Validation;
 
     /**
@@ -31,7 +32,7 @@ class PaymentItem extends Model
     public $rules = [
         'class_name' => 'required',
         'quantity' => 'required|integer|min:1',
-        'price' => 'required|min:0'
+        'price' => 'required|numeric|min:0'
     ];
 
     /**
@@ -72,17 +73,6 @@ class PaymentItem extends Model
     }
 
     /**
-     * Вызывается после заполнении модели данными, здесь мы наследуем класс типа предмета
-     * Также в атрибуты полей добавляются значения параметров предмета
-     * 
-     * @return void
-     */
-    public function afterFetch()
-    {
-        $this->applyPaymentItemClass();
-    }
-
-    /**
      * Вызывается до сохранения модели
      * Здесь отфильтровываются поля платежного шлюза от полей модели
      * Иначе будет ошибка о не существовании полей
@@ -92,8 +82,6 @@ class PaymentItem extends Model
      */
     public function beforeSave()
     {
-        $this->options = $this->getSavedParams();
-
         if (!array_get($this->attributes, 'description')) {
             $this->description = $this->getMessageItem();
         }
@@ -120,47 +108,5 @@ class PaymentItem extends Model
         }
 
         return parent::delete();
-    }
-
-    /**
-     * Проверка на существование класса предмета
-     * 
-     * @return mixed
-     */
-    public function checkPaymentItemClass($class = false)
-    {
-        if (!$class && !$this->class_name) {
-            return false;
-        }
-
-        if (!$class) {
-            $class = $this->class_name;
-        }
-
-        if (!class_exists($class)) {
-            return false;
-        }
-
-        return Str::normalizeClassName($class);
-    }
-
-    /**
-     * Наследование класса взависимости от типа предмета
-     *
-     * @param class
-     * @return bool
-     */
-    public function applyPaymentItemClass($class = false)
-    {
-        if (!$class = $this->checkPaymentItemClass($class)) {
-            return false;
-        }
-
-        if (!$this->isClassExtendedWith($class)) {
-            $this->extendClassWith($class);
-        }
-
-        $this->class_name = $class;
-        $this->attributes = array_merge($this->getFilteredParams(), $this->attributes);
     }
 }

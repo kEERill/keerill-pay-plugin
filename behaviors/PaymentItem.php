@@ -3,6 +3,31 @@
 Class PaymentItem extends PaymentBehavior 
 {
 
+    use \System\Traits\ConfigMaker;
+    
+    /**
+     * @var array Поля предмета платежа
+     */
+    private $configFields;
+
+    public function __construct($model = null)
+    {
+        parent::__construct($model);
+
+        $this->configPath = $this->guessConfigPathFrom($this);
+        $this->configFields = $this->makeConfig($this->defineFromFields());
+    }
+
+    /**
+     * Регистрация новых полей
+     * 
+     * @return string
+     */
+    public function defineFromFields()
+    {
+        return 'fields.yaml';
+    }
+
     /**
      * Информация о предмете платежа
      *
@@ -45,6 +70,16 @@ Class PaymentItem extends PaymentBehavior
     {
         return 'Error';
     }
+    
+    /**
+     * Новые поля для предмета
+     *
+     * @return Config
+     */
+    public function getFieldConfig()
+    {
+        return $this->configFields;
+    }
 
     /**
      * {@inheritdoc}
@@ -53,6 +88,21 @@ Class PaymentItem extends PaymentBehavior
     {
         parent::boot();
         $this->model->addFillableFields($this->defineFillableFields());
+    }
+
+    /**
+     * Наследование формы виджета для отображения формы создания и редактирования предмета
+     * 
+     * @param Backend\Widgets\Form $widget виджет формы
+     * @return void
+     */
+    public function formExtendFields($widget, $fields) 
+    {
+        $config = $this->getFieldConfig();
+        
+        if ($config->fields) {
+            $widget->addFields($config->fields, 'primary');
+        }
     }
 
     /**
